@@ -1,0 +1,132 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: 'Inter', sans-serif;
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  
+  --color-income: hsl(var(--income));
+  --color-expense: hsl(var(--expense));
+}
+
+:root {
+  /* Default Theme (Emerald) - Always Dark Mode base */
+  --background: 240 5% 4%;
+  --foreground: 0 0% 98%;
+  
+  --card: 240 5% 7%;
+  --card-foreground: 0 0% 98%;
+  
+  --popover: 240 5% 7%;
+  --popover-foreground: 0 0% 98%;
+  
+  --secondary: 240 5% 15%;
+  --secondary-foreground: 0 0% 98%;
+  
+  --muted: 240 5% 15%;
+  --muted-foreground: 240 5% 65%;
+  
+  --destructive: 355 100% 64%; /* #FF4757 */
+  --destructive-foreground: 0 0% 98%;
+  
+  --border: 240 5% 15%;
+  --input: 240 5% 15%;
+  
+  --income: 142 71% 45%; /* #22C55E */
+  --expense: 355 100% 64%; /* #FF4757 */
+
+  /* Theme: Emerald (Default) */
+  --primary: 141 64% 48%; /* #1ED760 */
+  --primary-foreground: 240 5% 4%;
+  --accent: 141 64% 48%;
+  --accent-foreground: 240 5% 4%;
+  --ring: 141 64% 48%;
+}
+
+:root[data-theme="ocean"] {
+  --primary: 221 100% 58%; /* #2979FF */
+  --primary-foreground: 0 0% 98%;
+  --accent: 221 100% 58%;
+  --accent-foreground: 0 0% 98%;
+  --ring: 221 100% 58%;
+}
+
+:root[data-theme="violet"] {
+  --primary: 271 91% 64%; /* #A855F7 */
+  --primary-foreground: 0 0% 98%;
+  --accent: 271 91% 64%;
+  --accent-foreground: 0 0% 98%;
+  --ring: 271 91% 64%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary-foreground;
+  }
+  button, a, select, [role="button"] {
+    cursor: pointer;
+  }
+  
+  /* Custom scrollbar — follows active theme primary color */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.35);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.65);
+  }
+}
+
+/* Print styles for PDF export */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  * {
+    box-shadow: none !important;
+    border-color: #ddd !important;
+  }
+  .text-primary, .text-income, .text-expense {
+    color: black !important;
+  }
+  .bg-primary, .bg-income, .bg-expense {
+    background-color: #eee !important;
+    color: black !important;
+  }
+}

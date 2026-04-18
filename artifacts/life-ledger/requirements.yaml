@@ -1,0 +1,19 @@
+packages:
+  "framer-motion": "For smooth page transitions, modal slide-ups, and interactive UI animations"
+  "date-fns": "For complex date manipulation, formatting, and period grouping in analytics"
+  "lucide-react": "For UI icons across the application"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility function to efficiently merge Tailwind CSS classes"
+
+images:
+  - path: "artifacts/life-ledger/public/images/hero-bg.png"
+    description: "Dark, premium fintech abstract background with subtle glowing geometric lines and very deep, almost black background. Hint of neon green or blue light leaks."
+    aspect_ratio: "16:9"
+  - path: "artifacts/life-ledger/public/images/empty-transactions.png"
+    description: "Minimalist 3D rendered safe or wallet, dark theme, soft lighting, indicating an empty state."
+    aspect_ratio: "1:1"
+
+notes:
+  - "App is purely client-side using localStorage. No backend APIs."
+  - "Using wouter for routing as requested by the template stack."
+  - "Custom SVG implementation for charts to avoid heavy dependencies."
