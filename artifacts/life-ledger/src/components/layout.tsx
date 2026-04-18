@@ -82,7 +82,7 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto pb-24 lg:pb-0 relative">
-        <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 print-only:p-0">
+        <div className="max-w-375 mx-auto w-full p-4 sm:p-6 lg:p-8 print-only:p-0">
           {children}
         </div>
       </main>
