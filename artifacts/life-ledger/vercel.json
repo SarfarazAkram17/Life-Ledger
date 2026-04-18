@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://business-manager-r0pc.onrender.com/api/$1"
+      "destination": "https://life-ledger-hnwo.onrender.com/api/$1"
     },
     {
       "source": "/(.*)",
