@@ -29,7 +29,7 @@ function ProtectedRoute({
     return (
       <div className="min-h-screen bg-background flex flex-col gap-3 items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        <p className="text-sm animate-pulse text-gray-100">Loading</p>
+        <p className="text-sm animate-pulse text-gray-100">Loading...</p>
       </div>
     );
   if (!user) return <Redirect to="/login" />;
@@ -46,7 +46,7 @@ function PublicRoute({
     return (
       <div className="min-h-screen bg-background flex flex-col gap-3 items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        <p className="text-sm animate-pulse text-gray-100">Loading</p>
+        <p className="text-sm animate-pulse text-gray-100">Loading...</p>
       </div>
     );
   if (user) return <Redirect to="/dashboard" />;
