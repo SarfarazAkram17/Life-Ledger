@@ -184,7 +184,8 @@ export default function Settings() {
       return text.length <= 250 ? `="${text}"` : `"${text}"`;
     };
     const rows: (string | number)[][] = [
-      ["Transactions", "", "", "", ""],
+      ["", "", `Transactions (${transactions.length})`, "", ""],
+      ["", "", "", "", ""],
       ["Date", "Type", "Category", "Amount", "Note"],
       ...transactions.map((transaction) => [
         transaction.date,
@@ -194,7 +195,9 @@ export default function Settings() {
         transaction.note ?? "",
       ]),
       ["", "", "", "", ""],
-      ["Budgets", "", "", "", ""],
+      ["", "", "", "", ""],
+      ["", "", `Budgets (${budgets.length})`, "", ""],
+      ["", "", "", "", ""],
       ["Month", "Category", "Limit", "Spent", "Used %"],
       ...budgets.map((budget) => {
         const spent = transactions
@@ -776,18 +779,3 @@ export default function Settings() {
     </Layout>
   );
 }
-
-
-
-
-// Month-over-month dashboard comparison: show how this month’s income and spending compare with last month.
-
-// Quick actions on recent transactions: edit or duplicate one directly from the dashboard.
-
-// Add a “Back to this month” shortcut on Budgets and Analytics when viewing an older month.
-
-// Add counts to CSV section headings, such as “Transactions (42)” and “Budgets (8).”
-
-// Show export confirmation after the CSV downloads.
-
-// add these two features and tell me which files updated to do this
