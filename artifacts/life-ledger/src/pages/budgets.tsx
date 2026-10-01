@@ -313,7 +313,7 @@ export default function Budgets() {
                 {copyingBudgets
                   ? "Copying budgets…"
                   : budgetsToCopy.length > 0
-                    ? `Copy ${format(previousMonthDate, "MMM")} budgets`
+                    ? `Copy ${format(previousMonthDate, "MMMM")} budgets`
                     : "All categories already budgeted"}
               </button>
             )}
