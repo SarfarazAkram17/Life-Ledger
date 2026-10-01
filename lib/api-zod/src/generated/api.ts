@@ -14,3 +14,69 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary Get the signed-in user's PIN status
+ */
+export const GetPinStatusResponse = zod.object({
+  enabled: zod.boolean(),
+  length: zod.union([zod.union([zod.literal(4), zod.literal(6)]), zod.null()]),
+});
+
+/**
+ * @summary Set or update the signed-in user's PIN
+ */
+export const setOrUpdatePinBodyCurrentPinRegExp = new RegExp(
+  "^\\d{4}$|^\\d{6}$",
+);
+export const setOrUpdatePinBodyNewPinRegExp = new RegExp("^\\d{4}$|^\\d{6}$");
+
+export const SetOrUpdatePinBody = zod.object({
+  currentPin: zod.string().regex(setOrUpdatePinBodyCurrentPinRegExp).optional(),
+  newPin: zod.string().regex(setOrUpdatePinBodyNewPinRegExp),
+  length: zod.union([zod.literal(4), zod.literal(6)]),
+});
+
+export const SetOrUpdatePinResponse = zod.object({
+  updated: zod.boolean(),
+  enabled: zod.boolean(),
+  length: zod.union([zod.literal(4), zod.literal(6)]),
+});
+
+/**
+ * @summary Remove the signed-in user's PIN
+ */
+export const removePinBodyCurrentPinRegExp = new RegExp("^\\d{4}$|^\\d{6}$");
+
+export const RemovePinBody = zod.object({
+  currentPin: zod.string().regex(removePinBodyCurrentPinRegExp),
+});
+
+export const RemovePinResponse = zod.object({
+  removed: zod.boolean(),
+});
+
+/**
+ * @summary Verify the signed-in user's PIN
+ */
+export const verifyPinBodyPinRegExp = new RegExp("^\\d{4}$|^\\d{6}$");
+
+export const VerifyPinBody = zod.object({
+  pin: zod.string().regex(verifyPinBodyPinRegExp),
+});
+
+export const VerifyPinResponse = zod.object({
+  verified: zod.boolean(),
+});
+
+/**
+ * @summary Remove a forgotten PIN after account-password verification
+ */
+
+export const RecoverPinBody = zod.object({
+  password: zod.string().min(1),
+});
+
+export const RecoverPinResponse = zod.object({
+  recovered: zod.boolean(),
+});

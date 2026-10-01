@@ -7,3 +7,13 @@
  */
 
 export * from "./healthStatus";
+export * from "./pinLength";
+export * from "./pinMutationRequest";
+export * from "./pinMutationResult";
+export * from "./pinRecoveryRequest";
+export * from "./pinRecoveryResult";
+export * from "./pinRemovalRequest";
+export * from "./pinRemovalResult";
+export * from "./pinStatus";
+export * from "./pinVerifyRequest";
+export * from "./pinVerifyResult";

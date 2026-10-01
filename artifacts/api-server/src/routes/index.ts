@@ -5,6 +5,7 @@ import transactionsRouter from "./transactions";
 import budgetsRouter from "./budgets";
 import prefsRouter from "./prefs";
 import dataRouter from "./data";
+import pinsRouter from "./pins";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use("/transactions", transactionsRouter);
 router.use("/budgets", budgetsRouter);
 router.use("/prefs", prefsRouter);
 router.use("/data", dataRouter);
+router.use("/pin", pinsRouter);
 
 export default router;

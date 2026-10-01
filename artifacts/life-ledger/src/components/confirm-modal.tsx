@@ -30,7 +30,7 @@ export function ConfirmModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-200 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
           onClick={onCancel}
         >
           <motion.div
@@ -39,7 +39,7 @@ export function ConfirmModal({
             exit={{ scale: 0.92, opacity: 0, y: 20 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             onClick={e => e.stopPropagation()}
-            className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl"
+            className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl"
           >
             <div className="flex items-start gap-4 mb-5">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${destructive ? 'bg-destructive/15 text-destructive' : 'bg-primary/15 text-primary'}`}>

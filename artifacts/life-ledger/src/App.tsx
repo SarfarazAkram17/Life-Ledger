@@ -3,12 +3,13 @@ import {
   Switch,
   Route,
   Router as WouterRouter,
-  useLocation,
   Redirect,
 } from "wouter";
 import { AuthProvider, useAuth } from "./contexts/auth-context";
 import { ThemeProvider } from "./contexts/theme-context";
 import { DataProvider } from "./contexts/data-context";
+import { PinLockProvider, usePinLock } from "./contexts/pin-lock-context";
+import { PinUnlockScreen } from "./components/pin-unlock-screen";
 
 import Landing from "./pages/landing";
 import Login from "./pages/login";
@@ -25,6 +26,7 @@ function ProtectedRoute({
   component: React.ComponentType;
 }) {
   const { user, loading } = useAuth();
+  const { ready, isLocked } = usePinLock();
   if (loading)
     return (
       <div className="min-h-screen bg-background flex flex-col gap-3 items-center justify-center">
@@ -33,6 +35,14 @@ function ProtectedRoute({
       </div>
     );
   if (!user) return <Redirect to="/login" />;
+  if (!ready)
+    return (
+      <div className="min-h-screen bg-background flex flex-col gap-3 items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        <p className="text-sm animate-pulse text-gray-100">Loading...</p>
+      </div>
+    );
+  if (isLocked) return <PinUnlockScreen />;
   return <Component />;
 }
 
@@ -105,13 +115,15 @@ function Routes() {
 function App() {
   return (
     <AuthProvider>
-      <ThemeProvider>
-        <DataProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Routes />
-          </WouterRouter>
-        </DataProvider>
-      </ThemeProvider>
+      <PinLockProvider>
+        <ThemeProvider>
+          <DataProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <Routes />
+            </WouterRouter>
+          </DataProvider>
+        </ThemeProvider>
+      </PinLockProvider>
     </AuthProvider>
   );
 }

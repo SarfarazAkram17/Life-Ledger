@@ -5,18 +5,32 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  HealthStatus,
+  PinMutationRequest,
+  PinMutationResult,
+  PinRecoveryRequest,
+  PinRecoveryResult,
+  PinRemovalRequest,
+  PinRemovalResult,
+  PinStatus,
+  PinVerifyRequest,
+  PinVerifyResult,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +113,422 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get the signed-in user's PIN status
+ */
+export const getGetPinStatusUrl = () => {
+  return `/api/pin`;
+};
+
+export const getPinStatus = async (
+  options?: RequestInit,
+): Promise<PinStatus> => {
+  return customFetch<PinStatus>(getGetPinStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPinStatusQueryKey = () => {
+  return [`/api/pin`] as const;
+};
+
+export const getGetPinStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPinStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPinStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPinStatusQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPinStatus>>> = ({
+    signal,
+  }) => getPinStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPinStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPinStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPinStatus>>
+>;
+export type GetPinStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the signed-in user's PIN status
+ */
+
+export function useGetPinStatus<
+  TData = Awaited<ReturnType<typeof getPinStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPinStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPinStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Set or update the signed-in user's PIN
+ */
+export const getSetOrUpdatePinUrl = () => {
+  return `/api/pin`;
+};
+
+export const setOrUpdatePin = async (
+  pinMutationRequest: PinMutationRequest,
+  options?: RequestInit,
+): Promise<PinMutationResult> => {
+  return customFetch<PinMutationResult>(getSetOrUpdatePinUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(pinMutationRequest),
+  });
+};
+
+export const getSetOrUpdatePinMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setOrUpdatePin>>,
+    TError,
+    { data: BodyType<PinMutationRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setOrUpdatePin>>,
+  TError,
+  { data: BodyType<PinMutationRequest> },
+  TContext
+> => {
+  const mutationKey = ["setOrUpdatePin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setOrUpdatePin>>,
+    { data: BodyType<PinMutationRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setOrUpdatePin(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetOrUpdatePinMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setOrUpdatePin>>
+>;
+export type SetOrUpdatePinMutationBody = BodyType<PinMutationRequest>;
+export type SetOrUpdatePinMutationError = ErrorType<void>;
+
+/**
+ * @summary Set or update the signed-in user's PIN
+ */
+export const useSetOrUpdatePin = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setOrUpdatePin>>,
+    TError,
+    { data: BodyType<PinMutationRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setOrUpdatePin>>,
+  TError,
+  { data: BodyType<PinMutationRequest> },
+  TContext
+> => {
+  return useMutation(getSetOrUpdatePinMutationOptions(options));
+};
+
+/**
+ * @summary Remove the signed-in user's PIN
+ */
+export const getRemovePinUrl = () => {
+  return `/api/pin`;
+};
+
+export const removePin = async (
+  pinRemovalRequest: PinRemovalRequest,
+  options?: RequestInit,
+): Promise<PinRemovalResult> => {
+  return customFetch<PinRemovalResult>(getRemovePinUrl(), {
+    ...options,
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(pinRemovalRequest),
+  });
+};
+
+export const getRemovePinMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removePin>>,
+    TError,
+    { data: BodyType<PinRemovalRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removePin>>,
+  TError,
+  { data: BodyType<PinRemovalRequest> },
+  TContext
+> => {
+  const mutationKey = ["removePin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removePin>>,
+    { data: BodyType<PinRemovalRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return removePin(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemovePinMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removePin>>
+>;
+export type RemovePinMutationBody = BodyType<PinRemovalRequest>;
+export type RemovePinMutationError = ErrorType<void>;
+
+/**
+ * @summary Remove the signed-in user's PIN
+ */
+export const useRemovePin = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removePin>>,
+    TError,
+    { data: BodyType<PinRemovalRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removePin>>,
+  TError,
+  { data: BodyType<PinRemovalRequest> },
+  TContext
+> => {
+  return useMutation(getRemovePinMutationOptions(options));
+};
+
+/**
+ * @summary Verify the signed-in user's PIN
+ */
+export const getVerifyPinUrl = () => {
+  return `/api/pin/verify`;
+};
+
+export const verifyPin = async (
+  pinVerifyRequest: PinVerifyRequest,
+  options?: RequestInit,
+): Promise<PinVerifyResult> => {
+  return customFetch<PinVerifyResult>(getVerifyPinUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(pinVerifyRequest),
+  });
+};
+
+export const getVerifyPinMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyPin>>,
+    TError,
+    { data: BodyType<PinVerifyRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof verifyPin>>,
+  TError,
+  { data: BodyType<PinVerifyRequest> },
+  TContext
+> => {
+  const mutationKey = ["verifyPin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof verifyPin>>,
+    { data: BodyType<PinVerifyRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return verifyPin(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type VerifyPinMutationResult = NonNullable<
+  Awaited<ReturnType<typeof verifyPin>>
+>;
+export type VerifyPinMutationBody = BodyType<PinVerifyRequest>;
+export type VerifyPinMutationError = ErrorType<void>;
+
+/**
+ * @summary Verify the signed-in user's PIN
+ */
+export const useVerifyPin = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof verifyPin>>,
+    TError,
+    { data: BodyType<PinVerifyRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof verifyPin>>,
+  TError,
+  { data: BodyType<PinVerifyRequest> },
+  TContext
+> => {
+  return useMutation(getVerifyPinMutationOptions(options));
+};
+
+/**
+ * @summary Remove a forgotten PIN after account-password verification
+ */
+export const getRecoverPinUrl = () => {
+  return `/api/pin/recover`;
+};
+
+export const recoverPin = async (
+  pinRecoveryRequest: PinRecoveryRequest,
+  options?: RequestInit,
+): Promise<PinRecoveryResult> => {
+  return customFetch<PinRecoveryResult>(getRecoverPinUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(pinRecoveryRequest),
+  });
+};
+
+export const getRecoverPinMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof recoverPin>>,
+    TError,
+    { data: BodyType<PinRecoveryRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof recoverPin>>,
+  TError,
+  { data: BodyType<PinRecoveryRequest> },
+  TContext
+> => {
+  const mutationKey = ["recoverPin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof recoverPin>>,
+    { data: BodyType<PinRecoveryRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return recoverPin(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RecoverPinMutationResult = NonNullable<
+  Awaited<ReturnType<typeof recoverPin>>
+>;
+export type RecoverPinMutationBody = BodyType<PinRecoveryRequest>;
+export type RecoverPinMutationError = ErrorType<void>;
+
+/**
+ * @summary Remove a forgotten PIN after account-password verification
+ */
+export const useRecoverPin = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof recoverPin>>,
+    TError,
+    { data: BodyType<PinRecoveryRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof recoverPin>>,
+  TError,
+  { data: BodyType<PinRecoveryRequest> },
+  TContext
+> => {
+  return useMutation(getRecoverPinMutationOptions(options));
+};

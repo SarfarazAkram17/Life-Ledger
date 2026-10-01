@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { useAuth } from './auth-context';
+import { usePinLock } from './pin-lock-context';
 import { apiFetch } from '@/lib/api';
 
 export type TransactionType = 'income' | 'expense';
@@ -39,28 +40,41 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { ready: pinReady, isLocked } = usePinLock();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const loadData = useCallback(async () => {
-    if (!user) { setTransactions([]); setBudgets([]); return; }
-    setLoading(true);
-    try {
-      const [txs, bdgts] = await Promise.all([
-        apiFetch<Transaction[]>('/transactions'),
-        apiFetch<Budget[]>('/budgets'),
-      ]);
-      setTransactions(txs);
-      setBudgets(bdgts);
-    } catch (err) {
-      console.error('Failed to load data:', err);
-    } finally {
+  useEffect(() => {
+    let active = true;
+    if (!user || !pinReady || isLocked) {
+      setTransactions([]);
+      setBudgets([]);
       setLoading(false);
+      return () => { active = false; };
     }
-  }, [user]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+    setLoading(true);
+    const loadData = async () => {
+      try {
+        const [txs, bdgts] = await Promise.all([
+          apiFetch<Transaction[]>('/transactions'),
+          apiFetch<Budget[]>('/budgets'),
+        ]);
+        if (active) {
+          setTransactions(txs);
+          setBudgets(bdgts);
+        }
+      } catch (err) {
+        if (active) console.error('Failed to load data:', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void loadData();
+
+    return () => { active = false; };
+  }, [user, pinReady, isLocked]);
 
   const addTransaction = async (tx: Omit<Transaction, 'id' | 'createdAt'>) => {
     const newTx = await apiFetch<Transaction>('/transactions', {

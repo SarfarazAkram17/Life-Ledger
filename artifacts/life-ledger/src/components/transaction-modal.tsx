@@ -172,7 +172,7 @@ export function TransactionModal({ isOpen, onClose, editTx }: TransactionModalPr
                     value={note}
                     onChange={e => setNote(e.target.value)}
                     placeholder="e.g. Lunch..."
-                    className="w-full bg-background border-2 border-border rounded-xl py-3 px-4 outline-none focus:border-primary transition-all"
+                    className="w-full bg-background border-2 border-border rounded-xl py-2 px-4 outline-none focus:border-primary transition-all"
                   />
                 </div>
               </div>

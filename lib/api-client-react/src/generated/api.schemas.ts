@@ -8,3 +8,56 @@
 export interface HealthStatus {
   status: string;
 }
+
+export type PinLength = (typeof PinLength)[keyof typeof PinLength];
+
+export const PinLength = {
+  NUMBER_4: 4,
+  NUMBER_6: 6,
+} as const;
+
+export interface PinStatus {
+  enabled: boolean;
+  length: PinLength | null;
+}
+
+export interface PinMutationRequest {
+  /** @pattern ^\d{4}$|^\d{6}$ */
+  currentPin?: string;
+  /** @pattern ^\d{4}$|^\d{6}$ */
+  newPin: string;
+  length: PinLength;
+}
+
+export interface PinMutationResult {
+  updated: boolean;
+  enabled: boolean;
+  length: PinLength;
+}
+
+export interface PinRemovalRequest {
+  /** @pattern ^\d{4}$|^\d{6}$ */
+  currentPin: string;
+}
+
+export interface PinRemovalResult {
+  removed: boolean;
+}
+
+export interface PinVerifyRequest {
+  /** @pattern ^\d{4}$|^\d{6}$ */
+  pin: string;
+}
+
+export interface PinVerifyResult {
+  verified: boolean;
+}
+
+export interface PinRecoveryRequest {
+  /** @minLength 1 */
+  password: string;
+}
+
+export interface PinRecoveryResult {
+  recovered: boolean;
+}

@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: pin
+    description: Account PIN lock operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,112 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /pin:
+    get:
+      operationId: getPinStatus
+      tags: [pin]
+      summary: Get the signed-in user's PIN status
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: PIN configuration status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PinStatus"
+    put:
+      operationId: setOrUpdatePin
+      tags: [pin]
+      summary: Set or update the signed-in user's PIN
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinMutationRequest"
+      responses:
+        "200":
+          description: PIN update result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PinMutationResult"
+        "400":
+          description: Invalid PIN request
+        "429":
+          description: PIN is temporarily locked after too many attempts
+    delete:
+      operationId: removePin
+      tags: [pin]
+      summary: Remove the signed-in user's PIN
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinRemovalRequest"
+      responses:
+        "200":
+          description: PIN removal result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PinRemovalResult"
+        "400":
+          description: Invalid PIN request
+        "429":
+          description: PIN is temporarily locked after too many attempts
+  /pin/verify:
+    post:
+      operationId: verifyPin
+      tags: [pin]
+      summary: Verify the signed-in user's PIN
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinVerifyRequest"
+      responses:
+        "200":
+          description: PIN verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PinVerifyResult"
+        "400":
+          description: Invalid PIN request
+        "429":
+          description: PIN is temporarily locked after too many attempts
+  /pin/recover:
+    post:
+      operationId: recoverPin
+      tags: [pin]
+      summary: Remove a forgotten PIN after account-password verification
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinRecoveryRequest"
+      responses:
+        "200":
+          description: PIN recovery result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PinRecoveryResult"
+        "401":
+          description: Incorrect account password
 components:
   schemas:
     HealthStatus:
@@ -33,4 +141,83 @@ components:
           type: string
       required:
         - status
+    PinLength:
+      type: integer
+      enum: [4, 6]
+    PinStatus:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        length:
+          anyOf:
+            - $ref: "#/components/schemas/PinLength"
+            - type: "null"
+      required: [enabled, length]
+    PinMutationRequest:
+      type: object
+      properties:
+        currentPin:
+          type: string
+          pattern: '^\d{4}$|^\d{6}$'
+        newPin:
+          type: string
+          pattern: '^\d{4}$|^\d{6}$'
+        length:
+          $ref: "#/components/schemas/PinLength"
+      required: [newPin, length]
+    PinMutationResult:
+      type: object
+      properties:
+        updated:
+          type: boolean
+        enabled:
+          type: boolean
+        length:
+          $ref: "#/components/schemas/PinLength"
+      required: [updated, enabled, length]
+    PinRemovalRequest:
+      type: object
+      properties:
+        currentPin:
+          type: string
+          pattern: '^\d{4}$|^\d{6}$'
+      required: [currentPin]
+    PinRemovalResult:
+      type: object
+      properties:
+        removed:
+          type: boolean
+      required: [removed]
+    PinVerifyRequest:
+      type: object
+      properties:
+        pin:
+          type: string
+          pattern: '^\d{4}$|^\d{6}$'
+      required: [pin]
+    PinVerifyResult:
+      type: object
+      properties:
+        verified:
+          type: boolean
+      required: [verified]
+    PinRecoveryRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 1
+      required: [password]
+    PinRecoveryResult:
+      type: object
+      properties:
+        recovered:
+          type: boolean
+      required: [recovered]
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
 

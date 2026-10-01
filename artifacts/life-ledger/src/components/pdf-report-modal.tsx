@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-type PeriodType = "day" | "week" | "month" | "year";
+type PeriodType = "day" | "week" | "month" | "year" | "all";
 
 interface PdfReportModalProps {
   isOpen: boolean;
@@ -89,17 +89,32 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
   const { transactions, budgets } = useData();
   const { currency } = useTheme();
 
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
 
   const [periodType, setPeriodType] = useState<PeriodType>("month");
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [calView, setCalView] = useState<Date>(today);
   const [generating, setGenerating] = useState(false);
 
+  const allTimeStart = useMemo(() => {
+    const dates = [
+      ...transactions.map((tx) => parseISO(tx.date)),
+      ...budgets.map((budget) => parseISO(`${budget.monthKey}-01`)),
+    ].filter((date) => !Number.isNaN(date.getTime()));
+    if (dates.length === 0) return startOfDay(today);
+    return startOfDay(
+      new Date(Math.min(...dates.map((date) => date.getTime()))),
+    );
+  }, [transactions, budgets, today]);
+
   // Compute date range
   const { rangeStart, rangeEnd, rangeLabel } = useMemo(() => {
     let start: Date, end: Date, label: string;
-    if (periodType === "day") {
+    if (periodType === "all") {
+      start = allTimeStart;
+      end = endOfDay(today);
+      label = "All Time";
+    } else if (periodType === "day") {
       start = startOfDay(selectedDate);
       end = endOfDay(selectedDate);
       label = format(selectedDate, "MMMM d, yyyy");
@@ -118,7 +133,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
       label = `${selectedDate.getFullYear()}`;
     }
     return { rangeStart: start, rangeEnd: end, rangeLabel: label };
-  }, [periodType, selectedDate]);
+  }, [periodType, selectedDate, allTimeStart, today]);
 
   const filteredTxs = useMemo(() => {
     return transactions.filter((tx) => {
@@ -162,6 +177,8 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
   };
 
   const inSelectedRange = (d: Date): boolean => {
+    if (periodType === "all")
+      return d >= startOfDay(allTimeStart) && d <= startOfDay(today);
     if (periodType === "day") return isSameDay(d, selectedDate);
     if (periodType === "week") {
       const ws = getWeekStart(selectedDate);
@@ -172,12 +189,14 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
     return d.getFullYear() === selectedDate.getFullYear();
   };
   const isStart = (d: Date): boolean => {
+    if (periodType === "all") return isSameDay(d, allTimeStart);
     if (periodType === "day") return isSameDay(d, selectedDate);
     if (periodType === "week") return isSameDay(d, getWeekStart(selectedDate));
     if (periodType === "month") return isSameDay(d, startOfMonth(selectedDate));
     return isSameDay(d, startOfYear(selectedDate));
   };
   const isEnd = (d: Date): boolean => {
+    if (periodType === "all") return isSameDay(d, today);
     if (periodType === "day") return isSameDay(d, selectedDate);
     if (periodType === "week")
       return isSameDay(d, getWeekEnd(getWeekStart(selectedDate)));
@@ -200,7 +219,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
 
   const changePeriod = (pt: PeriodType) => {
     setPeriodType(pt);
-    setCalView(selectedDate);
+    setCalView(pt === "all" ? today : selectedDate);
   };
 
   const formatCurrency = (amount: number, currency: string = "USD"): string => {
@@ -212,7 +231,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
   };
 
   // Build PDF
-  const generatePDF = () => {
+  const generatePDF = (allTime = false) => {
     setGenerating(true);
     try {
       const doc = new jsPDF();
@@ -220,6 +239,20 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
         CATEGORIES.find((c) => c.id === id)?.name ?? id;
       const now = format(new Date(), "MMMM d, yyyy");
       const primary: [number, number, number] = [30, 215, 96];
+      const reportLabel = allTime ? "All Time" : rangeLabel;
+      const reportTransactions = allTime ? transactions : filteredTxs;
+      const reportBudgets = allTime ? budgets : filteredBudgets;
+      const reportTotals = allTime
+        ? transactions.reduce(
+            (acc, tx) => {
+              if (tx.type === "income") acc.income += tx.amount;
+              else acc.expense += tx.amount;
+              acc.balance = acc.income - acc.expense;
+              return acc;
+            },
+            { income: 0, expense: 0, balance: 0 },
+          )
+        : filteredTotals;
 
       // Header banner
       doc.setFillColor(...primary);
@@ -231,7 +264,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.text(
-        `Period: ${rangeLabel}   |   Generated: ${now}   |   ${user?.displayName ?? ""}`,
+        `Period: ${reportLabel}   |   Generated: ${now}   |   ${user?.displayName ?? ""}`,
         14,
         30,
       );
@@ -247,9 +280,9 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
         head: [["Total Income", "Total Expenses", "Net Balance"]],
         body: [
           [
-            formatCurrency(filteredTotals.income, currency),
-            formatCurrency(filteredTotals.expense, currency),
-            formatCurrency(filteredTotals.balance, currency),
+            formatCurrency(reportTotals.income, currency),
+            formatCurrency(reportTotals.expense, currency),
+            formatCurrency(reportTotals.balance, currency),
           ],
         ],
         headStyles: {
@@ -264,7 +297,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
           1: { textColor: [255, 71, 87] },
           2: {
             textColor:
-              filteredTotals.balance >= 0 ? [34, 197, 94] : [255, 71, 87],
+              reportTotals.balance >= 0 ? [34, 197, 94] : [255, 71, 87],
           },
         },
         margin: { left: 14, right: 14 },
@@ -275,13 +308,13 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
       doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 0, 0);
-      doc.text(`Transactions (${filteredTxs.length})`, 14, txY);
+      doc.text(`Transactions (${reportTransactions.length})`, 14, txY);
 
-      if (filteredTxs.length > 0) {
+      if (reportTransactions.length > 0) {
         autoTable(doc, {
           startY: txY + 5,
           head: [["Date", "Type", "Category", "Amount", "Note"]],
-          body: filteredTxs.map((tx) => [
+          body: reportTransactions.map((tx) => [
             format(parseISO(tx.date), "MMM d, yyyy"),
             tx.type === "income" ? "Income" : "Expense",
             getCat(tx.category),
@@ -315,9 +348,9 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
       }
 
       // Budgets
-      if (filteredBudgets.length > 0) {
+      if (reportBudgets.length > 0) {
         const bdgY =
-          filteredTxs.length > 0
+          reportTransactions.length > 0
             ? (doc as any).lastAutoTable.finalY + 14
             : txY + 20;
         let actualY = bdgY;
@@ -329,9 +362,9 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
         doc.setFontSize(13);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 0, 0);
-        doc.text(`Budgets (${filteredBudgets.length})`, 14, actualY);
+        doc.text(`Budgets (${reportBudgets.length})`, 14, actualY);
 
-        const budgetRows = filteredBudgets.map((b) => {
+        const budgetRows = reportBudgets.map((b) => {
           const spent = transactions
             .filter(
               (t) =>
@@ -341,7 +374,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
             )
             .reduce((s, t) => s + t.amount, 0);
           return [
-            format(new Date(b.monthKey + "-01"), "MMMM yyyy"),
+            format(parseISO(b.monthKey + "-01"), "MMMM yyyy"),
             getCat(b.category),
             formatCurrency(b.amount, currency),
             formatCurrency(spent, currency),
@@ -371,17 +404,20 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
         doc.text(
-          `LifeLedger  ·  ${rangeLabel}  ·  Page ${i} of ${pages}`,
+          `LifeLedger  ·  ${reportLabel}  ·  Page ${i} of ${pages}`,
           14,
           290,
         );
       }
 
       doc.save(
-        `lifeledger_${periodType}_${format(rangeStart, "yyyy-MM-dd")}.pdf`,
+        allTime
+          ? "lifeledger_all-time.pdf"
+          : `lifeledger_${periodType}_${format(rangeStart, "yyyy-MM-dd")}.pdf`,
       );
     } finally {
       setGenerating(false);
+      onClose();
     }
   };
 
@@ -454,63 +490,119 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                         sub: `${today.getFullYear()}`,
                         preset: "this_year" as const,
                       },
-                    ].map(({ label, sub, preset }) => (
-                      <button
-                        key={preset}
-                        onClick={() => setPreset(preset)}
-                        className="flex flex-col items-start px-3 py-2.5 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-all cursor-pointer text-left"
-                      >
-                        <span className="text-xs font-bold text-primary">
-                          {label}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground mt-0.5">
-                          {sub}
-                        </span>
-                      </button>
-                    ))}
+                    ].map(({ label, sub, preset }) => {
+                      const isSelected =
+                        (preset === "today" &&
+                          periodType === "day" &&
+                          isSameDay(selectedDate, today)) ||
+                        (preset === "this_week" &&
+                          periodType === "week" &&
+                          isSameDay(
+                            getWeekStart(selectedDate),
+                            getWeekStart(today),
+                          )) ||
+                        (preset === "this_month" &&
+                          periodType === "month" &&
+                          isSameMonth(selectedDate, today)) ||
+                        (preset === "this_year" &&
+                          periodType === "year" &&
+                          selectedDate.getFullYear() === today.getFullYear());
+
+                      return (
+                        <button
+                          key={preset}
+                          onClick={() => setPreset(preset)}
+                          aria-pressed={isSelected}
+                          className={cn(
+                            "flex flex-col items-start px-3 py-2.5 rounded-xl border transition-all cursor-pointer text-left",
+                            isSelected
+                              ? "bg-primary/20 border-primary ring-1 ring-primary/20"
+                              : "bg-primary/10 hover:bg-primary/20 border-primary/20",
+                          )}
+                        >
+                          <span className="text-xs font-bold text-primary">
+                            {label}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground mt-0.5">
+                            {sub}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => changePeriod("all")}
+                      aria-pressed={periodType === "all"}
+                      data-testid="button-export-all-time"
+                      className={cn(
+                        "col-span-2 flex flex-col items-start px-3 py-2.5 rounded-xl border transition-all cursor-pointer text-left",
+                        periodType === "all"
+                          ? "bg-primary/20 border-primary ring-1 ring-primary/20"
+                          : "bg-primary/10 hover:bg-primary/20 border-primary/20",
+                      )}
+                    >
+                      <span className="text-xs font-bold text-primary">
+                        All Time
+                      </span>
+                      <span className="text-[11px] text-muted-foreground mt-0.5">
+                        Complete transaction and budget history
+                      </span>
+                    </button>
                   </div>
                 </div>
 
                 {/* Period tabs */}
                 <div>
                   <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
-                    Custom Period
+                    Period
                   </p>
                   <div className="flex p-1 bg-muted rounded-xl mb-4">
-                    {(["day", "week", "month", "year"] as PeriodType[]).map(
-                      (pt) => (
-                        <button
-                          key={pt}
-                          onClick={() => changePeriod(pt)}
-                          className={cn(
-                            "flex-1 py-2 text-xs font-semibold rounded-lg transition-all capitalize cursor-pointer",
-                            periodType === pt
-                              ? "bg-card shadow text-primary"
-                              : "text-muted-foreground hover:text-foreground",
-                          )}
-                        >
-                          {pt}
-                        </button>
-                      ),
-                    )}
+                    {(
+                      ["day", "week", "month", "year", "all"] as PeriodType[]
+                    ).map((pt) => (
+                      <button
+                        key={pt}
+                        onClick={() => changePeriod(pt)}
+                        aria-pressed={periodType === pt}
+                        data-testid={
+                          pt === "all" ? "tab-period-all" : undefined
+                        }
+                        className={cn(
+                          "flex-1 py-2 text-xs font-semibold rounded-lg transition-all capitalize cursor-pointer",
+                          periodType === pt
+                            ? "bg-card shadow text-primary"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {pt === "all" ? "All" : pt}
+                      </button>
+                    ))}
                   </div>
 
                   {/* Custom Calendar */}
                   <div className="bg-background border border-border rounded-xl p-3">
                     {/* Day / Week calendar */}
-                    {(periodType === "day" || periodType === "week") && (
+                    {(periodType === "day" ||
+                      periodType === "week" ||
+                      periodType === "all") && (
                       <>
-                        {/* Can we go forward? Only if not already at current month */}
+                        {/* Calendar navigation */}
                         {(() => {
                           const todayNorm = new Date(today);
                           todayNorm.setHours(0, 0, 0, 0);
                           const canNextMonth =
                             calView.getFullYear() * 12 + calView.getMonth() <
                             todayNorm.getFullYear() * 12 + todayNorm.getMonth();
+                          const canPrevMonth =
+                            periodType !== "all" ||
+                            calView.getFullYear() * 12 + calView.getMonth() >
+                              allTimeStart.getFullYear() * 12 +
+                                allTimeStart.getMonth();
                           return (
                             <div className="flex items-center justify-between mb-3">
                               <button
                                 onClick={() =>
+                                  canPrevMonth &&
                                   setCalView(
                                     new Date(
                                       calView.getFullYear(),
@@ -519,7 +611,13 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                                     ),
                                   )
                                 }
-                                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                                disabled={!canPrevMonth}
+                                className={cn(
+                                  "w-7 h-7 flex items-center justify-center rounded-lg transition-colors",
+                                  canPrevMonth
+                                    ? "hover:bg-muted cursor-pointer"
+                                    : "opacity-25 cursor-not-allowed",
+                                )}
                               >
                                 <ChevronLeft className="w-4 h-4" />
                               </button>
@@ -550,6 +648,12 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                             </div>
                           );
                         })()}
+                        {periodType === "all" && (
+                          <p className="mb-2 rounded-lg bg-primary/10 px-2 py-1.5 text-center text-[10px] font-medium text-primary">
+                            Full range: {format(allTimeStart, "MMM d, yyyy")} –{" "}
+                            {format(today, "MMM d, yyyy")}
+                          </p>
+                        )}
                         <div className="grid grid-cols-7 text-center mb-1">
                           {WEEK_HEADERS.map((h) => (
                             <div
@@ -576,6 +680,8 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                                 key={i}
                                 onClick={() => {
                                   if (!isFuture) {
+                                    if (periodType === "all")
+                                      setPeriodType("day");
                                     setSelectedDate(d);
                                     setCalView(d);
                                   }
@@ -714,9 +820,9 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                             return (
                               <button
                                 key={yr}
-                                onClick={() =>
-                                  setSelectedDate(new Date(yr, 0, 1))
-                                }
+                                onClick={() => {
+                                  setSelectedDate(new Date(yr, 0, 1));
+                                }}
                                 className={cn(
                                   "py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer",
                                   sel
@@ -748,10 +854,16 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-[11px] text-muted-foreground">
-                      {filteredTxs.length} transactions
+                      {periodType === "all"
+                        ? transactions.length
+                        : filteredTxs.length}{" "}
+                      transactions
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      {filteredBudgets.length} budgets
+                      {periodType === "all"
+                        ? budgets.length
+                        : filteredBudgets.length}{" "}
+                      budgets
                     </p>
                   </div>
                 </div>
@@ -760,7 +872,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
               {/* Footer */}
               <div className="px-5 pb-5 pt-3 border-t border-border shrink-0">
                 <button
-                  onClick={generatePDF}
+                  onClick={() => generatePDF(periodType === "all")}
                   disabled={generating}
                   className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/25 hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-60 disabled:transform-none transition-all cursor-pointer"
                 >
