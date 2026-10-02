@@ -19,6 +19,7 @@ import Transactions from "./pages/transactions";
 import Analytics from "./pages/analytics";
 import Budgets from "./pages/budgets";
 import Settings from "./pages/settings";
+import NotFound from "./pages/not-found";
 
 function ProtectedRoute({
   component: Component,
@@ -96,18 +97,9 @@ function Routes() {
         path="/settings"
         component={() => <ProtectedRoute component={Settings} />}
       />
-
-      <Route>
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold mb-4">404</h1>
-            <p className="text-muted-foreground mb-4">Page not found</p>
-            <a href="/" className="text-primary hover:underline">
-              Go Home
-            </a>
-          </div>
-        </div>
-      </Route>
+      <Route
+        component={NotFound}
+      />
     </Switch>
   );
 }
