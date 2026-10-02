@@ -9,14 +9,13 @@ import { ArrowUpRight, Wallet, TrendingUp, TrendingDown, PieChart, ArrowRight, C
 import { IoReceiptOutline } from 'react-icons/io5';
 import { Link } from 'wouter';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
-import { CATEGORIES } from '@/lib/constants';
 import { calculateMonthComparisonTotals, getPercentageChange } from '@/lib/month-comparison';
 import { TransactionModal } from '@/components/transaction-modal';
 import { MonthPicker } from '@/components/month-picker';
 import { ConfirmModal } from '@/components/confirm-modal';
 
 export default function Dashboard() {
-  const { totals, transactions, deleteTransaction } = useData();
+  const { totals, transactions, categories, deleteTransaction } = useData();
   const { currency } = useTheme();
   const { user } = useAuth();
 
@@ -82,7 +81,9 @@ export default function Dashboard() {
     setDeleteId(null);
   };
 
-  const getCategory = (id: string) => CATEGORIES.find(c => c.id === id) || CATEGORIES[CATEGORIES.length - 1];
+  const getCategory = (id: string) =>
+    categories.find((category) => category.id === id) ??
+    { id, name: id, icon: "📦" };
 
   const formatDate = (isoString: string) => {
     const d = parseISO(isoString);

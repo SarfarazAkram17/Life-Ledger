@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Layout } from "@/components/layout";
 import { useData } from "@/contexts/data-context";
 import { useTheme } from "@/contexts/theme-context";
-import { CATEGORIES } from "@/lib/constants";
 import { formatCurrency, getCurrencySymbol, cn } from "@/lib/utils";
 import { format, parse } from "date-fns";
 import {
@@ -47,7 +46,7 @@ function getBudgetStatus(percent: number) {
 }
 
 export default function Budgets() {
-  const { budgets, transactions, addBudget, updateBudget, deleteBudget } =
+  const { budgets, transactions, categories, addBudget, updateBudget, deleteBudget } =
     useData();
   const { currency } = useTheme();
 
@@ -91,8 +90,15 @@ export default function Budgets() {
     (b) => b.monthKey === previousMonthStr,
   );
   const activeBudgetCategories = new Set(activeBudgets.map((b) => b.category));
+  const selectableExpenseCategoryIds = new Set(
+    categories
+      .filter((category) => category.type === "expense" && !category.isArchived)
+      .map((category) => category.id),
+  );
   const budgetsToCopy = previousMonthBudgets.filter(
-    (b) => !activeBudgetCategories.has(b.category),
+    (b) =>
+      !activeBudgetCategories.has(b.category) &&
+      selectableExpenseCategoryIds.has(b.category),
   );
 
   const totalBudgeted = activeBudgets.reduce((s, b) => s + b.amount, 0);
@@ -350,7 +356,7 @@ export default function Budgets() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {activeBudgets.map((b) => {
-              const cat = CATEGORIES.find((c) => c.id === b.category);
+              const cat = categories.find((c) => c.id === b.category);
               return (
                 <div
                   key={b.id}
@@ -469,10 +475,10 @@ export default function Budgets() {
                   {editBudgetId ? (
                     <div className="flex items-center gap-3 px-4 py-3 bg-background border border-border rounded-xl">
                       <span className="text-xl">
-                        {CATEGORIES.find((c) => c.id === selectedCat)?.icon}
+                        {categories.find((c) => c.id === selectedCat)?.icon}
                       </span>
                       <span className="font-medium text-sm sm:text-base">
-                        {CATEGORIES.find((c) => c.id === selectedCat)?.name ??
+                        {categories.find((c) => c.id === selectedCat)?.name ??
                           selectedCat}
                       </span>
                     </div>
@@ -484,8 +490,8 @@ export default function Budgets() {
                         className="w-full appearance-none bg-background border border-border rounded-xl py-3 pl-4 pr-10 outline-none focus:border-primary cursor-pointer text-sm sm:text-base text-foreground"
                       >
                         <option value="">Select a category...</option>
-                        {CATEGORIES.filter(
-                          (c) => c.defaultType !== "income",
+                        {categories.filter(
+                          (c) => c.type === "expense" && !c.isArchived,
                         ).map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.icon} {c.name}

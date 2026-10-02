@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: pin
     description: Account PIN lock operations
+  - name: category
+    description: User category and income source management
 paths:
   /healthz:
     get:
@@ -26,6 +28,77 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [category]
+      summary: List the signed-in user's categories
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Categories, including archived categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+    post:
+      operationId: createCategory
+      tags: [category]
+      summary: Create a category or income source
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          description: Invalid category
+        "409":
+          description: A category with that name already exists
+  /categories/{id}:
+    patch:
+      operationId: updateCategory
+      tags: [category]
+      summary: Rename, change icon, archive, or restore a category
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdate"
+      responses:
+        "200":
+          description: Category updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          description: Invalid category update
+        "404":
+          description: Category not found
+        "409":
+          description: A category with that name already exists
   /pin:
     get:
       operationId: getPinStatus
@@ -141,6 +214,56 @@ components:
           type: string
       required:
         - status
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [expense, income]
+        name:
+          type: string
+        icon:
+          type: string
+        isArchived:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, type, name, icon, isArchived, createdAt, updatedAt]
+    CategoryInput:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [expense, income]
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        icon:
+          type: string
+          minLength: 1
+          maxLength: 16
+      required: [type, name, icon]
+    CategoryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        icon:
+          type: string
+          minLength: 1
+          maxLength: 16
+        isArchived:
+          type: boolean
+      minProperties: 1
     PinLength:
       type: integer
       enum: [4, 6]

@@ -6,6 +6,7 @@ import budgetsRouter from "./budgets";
 import prefsRouter from "./prefs";
 import dataRouter from "./data";
 import pinsRouter from "./pins";
+import categoriesRouter from "./categories";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use("/budgets", budgetsRouter);
 router.use("/prefs", prefsRouter);
 router.use("/data", dataRouter);
 router.use("/pin", pinsRouter);
+router.use("/categories", categoriesRouter);
 
 export default router;

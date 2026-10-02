@@ -6,7 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type PinLength = (typeof PinLength)[keyof typeof PinLength];
+export type PinLength = typeof PinLength[keyof typeof PinLength];
+
 
 export const PinLength = {
   NUMBER_4: 4,

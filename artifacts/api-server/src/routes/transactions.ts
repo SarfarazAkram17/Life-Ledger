@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { transactionsTable } from "@workspace/db/schema";
+import { categoriesTable, transactionsTable } from "@workspace/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../middleware/auth.js";
 
@@ -36,6 +36,24 @@ router.post("/", async (req: AuthRequest, res) => {
       res.status(400).json({ error: "type, amount, category, and date are required" });
       return;
     }
+    if (type !== "income" && type !== "expense") {
+      res.status(400).json({ error: "Invalid transaction type" });
+      return;
+    }
+    const [activeCategory] = await db
+      .select({ id: categoriesTable.id })
+      .from(categoriesTable)
+      .where(and(
+        eq(categoriesTable.id, category),
+        eq(categoriesTable.userId, req.user!.userId),
+        eq(categoriesTable.type, type),
+        eq(categoriesTable.isArchived, false),
+      ))
+      .limit(1);
+    if (!activeCategory) {
+      res.status(400).json({ error: "Choose an active category for this transaction" });
+      return;
+    }
     const [tx] = await db.insert(transactionsTable).values({
       userId: req.user!.userId,
       type,
@@ -60,6 +78,45 @@ router.put("/:id", async (req: AuthRequest, res) => {
     const { type, amount, category, date, note } = req.body as {
       type?: string; amount?: number; category?: string; date?: string; note?: string;
     };
+    const [current] = await db.select().from(transactionsTable)
+      .where(and(
+        eq(transactionsTable.id, id),
+        eq(transactionsTable.userId, req.user!.userId),
+      ))
+      .limit(1);
+    if (!current) { res.status(404).json({ error: "Transaction not found" }); return; }
+
+    const nextType = type ?? current.type;
+    const nextCategory = category ?? current.category;
+    if (nextType !== "income" && nextType !== "expense") {
+      res.status(400).json({ error: "Invalid transaction type" });
+      return;
+    }
+    if (category !== undefined || type !== undefined) {
+      const [categoryRecord] = await db.select({
+        id: categoriesTable.id,
+        type: categoriesTable.type,
+        isArchived: categoriesTable.isArchived,
+      }).from(categoriesTable)
+        .where(and(
+          eq(categoriesTable.id, nextCategory),
+          eq(categoriesTable.userId, req.user!.userId),
+        ))
+        .limit(1);
+      const isExistingArchivedCategory =
+        categoryRecord?.isArchived === true &&
+        nextCategory === current.category &&
+        nextType === current.type;
+      if (
+        !categoryRecord ||
+        categoryRecord.type !== nextType ||
+        (categoryRecord.isArchived && !isExistingArchivedCategory)
+      ) {
+        res.status(400).json({ error: "Choose an active category for this transaction" });
+        return;
+      }
+    }
+
     const updates: Partial<typeof transactionsTable.$inferInsert> = {};
     if (type !== undefined) updates.type = type;
     if (amount !== undefined) updates.amount = String(amount);

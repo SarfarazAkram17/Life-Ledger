@@ -2,7 +2,6 @@ import React, { useState, useMemo } from "react";
 import { Layout } from "@/components/layout";
 import { useData } from "@/contexts/data-context";
 import { useTheme } from "@/contexts/theme-context";
-import { CATEGORIES } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
 import { format, parse, parseISO } from "date-fns";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
@@ -35,7 +34,7 @@ const IncomeTrendChart = React.lazy(
 );
 
 export default function Analytics() {
-  const { transactions } = useData();
+  const { transactions, categories } = useData();
   const { currency } = useTheme();
   const [selectedBreakdown, setSelectedBreakdown] =
     useState<SelectedBreakdown | null>(null);
@@ -72,7 +71,7 @@ export default function Analytics() {
 
     return Object.entries(stats)
       .map(([catId, amount]) => ({
-        ...(CATEGORIES.find((c) => c.id === catId) ?? {
+        ...(categories.find((c) => c.id === catId) ?? {
           id: catId,
           name: catId,
           icon: "📦",
@@ -81,7 +80,7 @@ export default function Analytics() {
         percentage: totalExpense > 0 ? (amount / totalExpense) * 100 : 0,
       }))
       .sort((a, b) => b.amount - a.amount);
-  }, [transactions, activeMonthStr]);
+  }, [transactions, categories, activeMonthStr]);
 
   const earningStats = useMemo(() => {
     const incomeThisMonth = transactions.filter(
@@ -98,7 +97,7 @@ export default function Analytics() {
 
     return Object.entries(stats)
       .map(([catId, amount]) => ({
-        ...(CATEGORIES.find((c) => c.id === catId) ?? {
+        ...(categories.find((c) => c.id === catId) ?? {
           id: catId,
           name: catId,
           icon: "📦",
@@ -107,7 +106,7 @@ export default function Analytics() {
         percentage: totalIncome > 0 ? (amount / totalIncome) * 100 : 0,
       }))
       .sort((a, b) => b.amount - a.amount);
-  }, [transactions, activeMonthStr]);
+  }, [transactions, categories, activeMonthStr]);
 
   const chartData = useMemo(() => {
     const year = parseInt(activeMonthStr.split("-")[0]);
@@ -162,7 +161,7 @@ export default function Analytics() {
     const summarize = (amounts: Record<string, Record<string, number>>) =>
       Object.entries(amounts)
         .map(([id, monthlyAmounts]) => {
-          const category = CATEGORIES.find((item) => item.id === id);
+          const category = categories.find((item) => item.id === id);
           return {
             id,
             name: category?.name ?? id,
@@ -182,7 +181,7 @@ export default function Analytics() {
       incomeSourceAmounts,
       expenseCategoryAmounts,
     };
-  }, [transactions, selectedTrendYear]);
+  }, [transactions, categories, selectedTrendYear]);
 
   const effectiveTrendCategoryId = annualTrends.expenseCategories.some(
     (category) => category.id === selectedTrendCategoryId,

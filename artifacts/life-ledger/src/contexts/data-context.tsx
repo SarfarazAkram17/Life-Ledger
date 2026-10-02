@@ -2,8 +2,14 @@ import React, { createContext, useContext, useEffect, useState, useMemo } from '
 import { useAuth } from './auth-context';
 import { usePinLock } from './pin-lock-context';
 import { apiFetch } from '@/lib/api';
+import type {
+  Category as ApiCategory,
+  CategoryInput,
+  CategoryUpdate,
+} from '@workspace/api-client-react';
 
 export type TransactionType = 'income' | 'expense';
+export type Category = ApiCategory;
 
 export interface Transaction {
   id: string;
@@ -25,6 +31,7 @@ export interface Budget {
 interface DataContextType {
   transactions: Transaction[];
   budgets: Budget[];
+  categories: Category[];
   loading: boolean;
   addTransaction: (tx: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>;
   updateTransaction: (id: string, updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>) => Promise<void>;
@@ -32,6 +39,8 @@ interface DataContextType {
   addBudget: (budget: Omit<Budget, 'id'>) => Promise<void>;
   updateBudget: (id: string, amount: number) => Promise<void>;
   deleteBudget: (id: string) => Promise<void>;
+  addCategory: (category: CategoryInput) => Promise<Category>;
+  updateCategory: (id: string, updates: CategoryUpdate) => Promise<Category>;
   clearAllData: () => Promise<void>;
   totals: { income: number; expense: number; balance: number };
 }
@@ -43,6 +52,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const { ready: pinReady, isLocked } = usePinLock();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -50,6 +60,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user || !pinReady || isLocked) {
       setTransactions([]);
       setBudgets([]);
+      setCategories([]);
       setLoading(false);
       return () => { active = false; };
     }
@@ -61,9 +72,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           apiFetch<Transaction[]>('/transactions'),
           apiFetch<Budget[]>('/budgets'),
         ]);
+        const cats = await apiFetch<Category[]>('/categories');
         if (active) {
           setTransactions(txs);
           setBudgets(bdgts);
+          setCategories(cats);
         }
       } catch (err) {
         if (active) console.error('Failed to load data:', err);
@@ -73,7 +86,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     };
     void loadData();
 
-    return () => { active = false; };
+    const refreshCategories = () => {
+      void apiFetch<Category[]>('/categories')
+        .then((cats) => {
+          if (active) setCategories(cats);
+        })
+        .catch((err) => {
+          if (active) console.error('Failed to refresh categories:', err);
+        });
+    };
+    window.addEventListener('focus', refreshCategories);
+
+    return () => {
+      active = false;
+      window.removeEventListener('focus', refreshCategories);
+    };
   }, [user, pinReady, isLocked]);
 
   const addTransaction = async (tx: Omit<Transaction, 'id' | 'createdAt'>) => {
@@ -127,6 +154,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setBudgets(prev => prev.filter(b => b.id !== id));
   };
 
+  const addCategory = async (category: CategoryInput) => {
+    const created = await apiFetch<Category>('/categories', {
+      method: 'POST',
+      body: JSON.stringify(category),
+    });
+    setCategories((prev) => [...prev, created]);
+    return created;
+  };
+
+  const updateCategory = async (id: string, updates: CategoryUpdate) => {
+    const updated = await apiFetch<Category>(`/categories/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+    setCategories((prev) =>
+      prev.map((category) => (category.id === id ? updated : category)),
+    );
+    return updated;
+  };
+
   const clearAllData = async () => {
     await apiFetch('/data', { method: 'DELETE' });
     setTransactions([]);
@@ -145,9 +192,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      transactions, budgets, loading,
+      transactions, budgets, categories, loading,
       addTransaction, updateTransaction, deleteTransaction,
       addBudget, updateBudget, deleteBudget,
+      addCategory, updateCategory,
       clearAllData, totals,
     }}>
       {children}

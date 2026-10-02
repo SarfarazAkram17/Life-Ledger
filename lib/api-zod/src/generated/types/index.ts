@@ -6,14 +6,19 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export * from "./healthStatus";
-export * from "./pinLength";
-export * from "./pinMutationRequest";
-export * from "./pinMutationResult";
-export * from "./pinRecoveryRequest";
-export * from "./pinRecoveryResult";
-export * from "./pinRemovalRequest";
-export * from "./pinRemovalResult";
-export * from "./pinStatus";
-export * from "./pinVerifyRequest";
-export * from "./pinVerifyResult";
+export * from './category';
+export * from './categoryInput';
+export * from './categoryInputType';
+export * from './categoryType';
+export * from './categoryUpdate';
+export * from './healthStatus';
+export * from './pinLength';
+export * from './pinMutationRequest';
+export * from './pinMutationResult';
+export * from './pinRecoveryRequest';
+export * from './pinRecoveryResult';
+export * from './pinRemovalRequest';
+export * from './pinRemovalResult';
+export * from './pinStatus';
+export * from './pinVerifyRequest';
+export * from './pinVerifyResult';

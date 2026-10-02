@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { budgetsTable } from "@workspace/db/schema";
+import { budgetsTable, categoriesTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../middleware/auth.js";
 
@@ -42,6 +42,20 @@ router.post("/", async (req: AuthRequest, res) => {
         .where(eq(budgetsTable.id, existing[0].id))
         .returning();
       res.json({ id: updated.id, category: updated.category, amount: Number(updated.amount), monthKey: updated.monthKey });
+      return;
+    }
+    const [activeCategory] = await db
+      .select({ id: categoriesTable.id })
+      .from(categoriesTable)
+      .where(and(
+        eq(categoriesTable.id, category),
+        eq(categoriesTable.userId, req.user!.userId),
+        eq(categoriesTable.type, "expense"),
+        eq(categoriesTable.isArchived, false),
+      ))
+      .limit(1);
+    if (!activeCategory) {
+      res.status(400).json({ error: "Choose an active expense category" });
       return;
     }
     const [budget] = await db.insert(budgetsTable).values({

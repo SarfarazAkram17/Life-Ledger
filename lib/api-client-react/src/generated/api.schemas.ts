@@ -9,7 +9,62 @@ export interface HealthStatus {
   status: string;
 }
 
-export type PinLength = (typeof PinLength)[keyof typeof PinLength];
+export type CategoryType = typeof CategoryType[keyof typeof CategoryType];
+
+
+export const CategoryType = {
+  expense: 'expense',
+  income: 'income',
+} as const;
+
+export interface Category {
+  id: string;
+  type: CategoryType;
+  name: string;
+  icon: string;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CategoryInputType = typeof CategoryInputType[keyof typeof CategoryInputType];
+
+
+export const CategoryInputType = {
+  expense: 'expense',
+  income: 'income',
+} as const;
+
+export interface CategoryInput {
+  type: CategoryInputType;
+  /**
+   * @minLength 1
+   * @maxLength 40
+   */
+  name: string;
+  /**
+   * @minLength 1
+   * @maxLength 16
+   */
+  icon: string;
+}
+
+export interface CategoryUpdate {
+  /**
+   * @minLength 1
+   * @maxLength 40
+   */
+  name?: string;
+  /**
+   * @minLength 1
+   * @maxLength 16
+   */
+  icon?: string;
+  isArchived?: boolean;
+}
+
+export type PinLength = typeof PinLength[keyof typeof PinLength];
+
 
 export const PinLength = {
   NUMBER_4: 4,
@@ -61,3 +116,4 @@ export interface PinRecoveryRequest {
 export interface PinRecoveryResult {
   recovered: boolean;
 }
+

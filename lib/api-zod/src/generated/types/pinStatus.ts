@@ -5,7 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { PinLength } from "./pinLength";
+import type { PinLength } from './pinLength';
 
 export interface PinStatus {
   enabled: boolean;

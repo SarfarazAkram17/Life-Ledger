@@ -5,78 +5,150 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import * as zod from "zod";
+import * as zod from 'zod';
+
 
 /**
  * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
-  status: zod.string(),
-});
+  "status": zod.string()
+})
+
+
+/**
+ * @summary List the signed-in user's categories
+ */
+export const ListCategoriesResponseItem = zod.object({
+  "id": zod.string(),
+  "type": zod.enum(['expense', 'income']),
+  "name": zod.string(),
+  "icon": zod.string(),
+  "isArchived": zod.boolean(),
+  "createdAt": zod.date(),
+  "updatedAt": zod.date()
+})
+export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
+
+
+/**
+ * @summary Create a category or income source
+ */
+export const createCategoryBodyNameMax = 40;
+
+export const createCategoryBodyIconMax = 16;
+
+
+
+export const CreateCategoryBody = zod.object({
+  "type": zod.enum(['expense', 'income']),
+  "name": zod.string().min(1).max(createCategoryBodyNameMax),
+  "icon": zod.string().min(1).max(createCategoryBodyIconMax)
+})
+
+
+/**
+ * @summary Rename, change icon, archive, or restore a category
+ */
+export const UpdateCategoryParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateCategoryBodyNameMax = 40;
+
+export const updateCategoryBodyIconMax = 16;
+
+
+
+export const UpdateCategoryBody = zod.object({
+  "name": zod.string().min(1).max(updateCategoryBodyNameMax).optional(),
+  "icon": zod.string().min(1).max(updateCategoryBodyIconMax).optional(),
+  "isArchived": zod.boolean().optional()
+})
+
+export const UpdateCategoryResponse = zod.object({
+  "id": zod.string(),
+  "type": zod.enum(['expense', 'income']),
+  "name": zod.string(),
+  "icon": zod.string(),
+  "isArchived": zod.boolean(),
+  "createdAt": zod.date(),
+  "updatedAt": zod.date()
+})
+
 
 /**
  * @summary Get the signed-in user's PIN status
  */
 export const GetPinStatusResponse = zod.object({
-  enabled: zod.boolean(),
-  length: zod.union([zod.union([zod.literal(4), zod.literal(6)]), zod.null()]),
-});
+  "enabled": zod.boolean(),
+  "length": zod.union([zod.union([zod.literal(4),zod.literal(6)]),zod.null()])
+})
+
 
 /**
  * @summary Set or update the signed-in user's PIN
  */
-export const setOrUpdatePinBodyCurrentPinRegExp = new RegExp(
-  "^\\d{4}$|^\\d{6}$",
-);
-export const setOrUpdatePinBodyNewPinRegExp = new RegExp("^\\d{4}$|^\\d{6}$");
+export const setOrUpdatePinBodyCurrentPinRegExp = new RegExp('^\\d{4}$|^\\d{6}$');
+export const setOrUpdatePinBodyNewPinRegExp = new RegExp('^\\d{4}$|^\\d{6}$');
+
 
 export const SetOrUpdatePinBody = zod.object({
-  currentPin: zod.string().regex(setOrUpdatePinBodyCurrentPinRegExp).optional(),
-  newPin: zod.string().regex(setOrUpdatePinBodyNewPinRegExp),
-  length: zod.union([zod.literal(4), zod.literal(6)]),
-});
+  "currentPin": zod.string().regex(setOrUpdatePinBodyCurrentPinRegExp).optional(),
+  "newPin": zod.string().regex(setOrUpdatePinBodyNewPinRegExp),
+  "length": zod.union([zod.literal(4),zod.literal(6)])
+})
 
 export const SetOrUpdatePinResponse = zod.object({
-  updated: zod.boolean(),
-  enabled: zod.boolean(),
-  length: zod.union([zod.literal(4), zod.literal(6)]),
-});
+  "updated": zod.boolean(),
+  "enabled": zod.boolean(),
+  "length": zod.union([zod.literal(4),zod.literal(6)])
+})
+
 
 /**
  * @summary Remove the signed-in user's PIN
  */
-export const removePinBodyCurrentPinRegExp = new RegExp("^\\d{4}$|^\\d{6}$");
+export const removePinBodyCurrentPinRegExp = new RegExp('^\\d{4}$|^\\d{6}$');
+
 
 export const RemovePinBody = zod.object({
-  currentPin: zod.string().regex(removePinBodyCurrentPinRegExp),
-});
+  "currentPin": zod.string().regex(removePinBodyCurrentPinRegExp)
+})
 
 export const RemovePinResponse = zod.object({
-  removed: zod.boolean(),
-});
+  "removed": zod.boolean()
+})
+
 
 /**
  * @summary Verify the signed-in user's PIN
  */
-export const verifyPinBodyPinRegExp = new RegExp("^\\d{4}$|^\\d{6}$");
+export const verifyPinBodyPinRegExp = new RegExp('^\\d{4}$|^\\d{6}$');
+
 
 export const VerifyPinBody = zod.object({
-  pin: zod.string().regex(verifyPinBodyPinRegExp),
-});
+  "pin": zod.string().regex(verifyPinBodyPinRegExp)
+})
 
 export const VerifyPinResponse = zod.object({
-  verified: zod.boolean(),
-});
+  "verified": zod.boolean()
+})
+
 
 /**
  * @summary Remove a forgotten PIN after account-password verification
  */
 
+
+
 export const RecoverPinBody = zod.object({
-  password: zod.string().min(1),
-});
+  "password": zod.string().min(1)
+})
 
 export const RecoverPinResponse = zod.object({
-  recovered: zod.boolean(),
-});
+  "recovered": zod.boolean()
+})
+
+

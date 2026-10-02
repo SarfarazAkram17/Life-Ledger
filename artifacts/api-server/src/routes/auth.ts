@@ -1,14 +1,15 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
-import { usersTable, userPrefsTable } from "@workspace/db/schema";
+import { categoriesTable, usersTable, userPrefsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
+import { DEFAULT_CATEGORIES } from "../lib/default-categories.js";
 import { signToken } from "../lib/auth.js";
 import { requireAuth, AuthRequest } from "../middleware/auth.js";
 
 const router = Router();
 
-router.post("/register", async (req, res) => {
+router.post("/register", async (req, res): Promise<void> => {
   try {
     const { email, displayName, password } = req.body as {
       email?: string;
@@ -42,13 +43,23 @@ router.post("/register", async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const [newUser] = await db.insert(usersTable).values({
-      email: emailLower,
-      displayName: displayName.trim(),
-      passwordHash,
-    }).returning();
+    const newUser = await db.transaction(async (tx) => {
+      const [createdUser] = await tx.insert(usersTable).values({
+        email: emailLower,
+        displayName: displayName.trim(),
+        passwordHash,
+      }).returning();
 
-    await db.insert(userPrefsTable).values({ userId: newUser.id });
+      await tx.insert(userPrefsTable).values({ userId: createdUser.id });
+      await tx.insert(categoriesTable).values(
+        DEFAULT_CATEGORIES.map((category) => ({
+          ...category,
+          userId: createdUser.id,
+          isArchived: false,
+        })),
+      );
+      return createdUser;
+    });
 
     const token = signToken({ userId: newUser.id, email: newUser.email });
     res.status(201).json({
@@ -56,7 +67,10 @@ router.post("/register", async (req, res) => {
       user: { id: newUser.id, email: newUser.email, displayName: newUser.displayName },
     });
   } catch (err) {
-    console.error("Register error:", err);
+    req.log.error(
+      { errorName: err instanceof Error ? err.name : "UnknownError" },
+      "Account registration failed",
+    );
     res.status(500).json({ error: "Server error" });
   }
 });

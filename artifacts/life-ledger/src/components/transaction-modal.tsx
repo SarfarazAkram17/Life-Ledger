@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Check } from "lucide-react";
 import { cn, getCurrencySymbol } from "@/lib/utils";
-import { CATEGORIES } from "@/lib/constants";
 import { useData, TransactionType, Transaction } from "@/contexts/data-context";
 import { useTheme } from "@/contexts/theme-context";
 import { format } from "date-fns";
@@ -21,7 +20,7 @@ export function TransactionModal({
   editTx,
   duplicateTx,
 }: TransactionModalProps) {
-  const { addTransaction, updateTransaction } = useData();
+  const { addTransaction, updateTransaction, categories } = useData();
   const { currency } = useTheme();
 
   const isEditMode = !!editTx;
@@ -51,10 +50,25 @@ export function TransactionModal({
         setNote("");
       }
     }
-  }, [isOpen, editTx, duplicateTx, today]);
+  }, [isOpen, sourceTx, today]);
+
+  const selectedCategory = categories.find((item) => item.id === category);
+  const canKeepArchivedCategory =
+    isEditMode &&
+    editTx?.category === category &&
+    selectedCategory?.isArchived === true;
+  const hasValidCategory =
+    selectedCategory?.type === type &&
+    (!selectedCategory.isArchived || canKeepArchivedCategory);
 
   const handleSave = () => {
-    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0 || !category)
+    if (
+      !amount ||
+      isNaN(Number(amount)) ||
+      Number(amount) <= 0 ||
+      !category ||
+      !hasValidCategory
+    )
       return;
     const payload = { type, amount: Number(amount), category, date, note };
     if (isEditMode && editTx) {
@@ -65,8 +79,11 @@ export function TransactionModal({
     onClose();
   };
 
-  const filteredCategories = CATEGORIES.filter((c) =>
-    type === "income" ? c.defaultType === "income" : c.defaultType !== "income",
+  const filteredCategories = categories.filter(
+    (category) =>
+      category.type === type &&
+      (!category.isArchived ||
+        (isEditMode && editTx?.category === category.id)),
   );
 
   return (
@@ -170,6 +187,11 @@ export function TransactionModal({
                 <label className="text-sm font-medium text-muted-foreground">
                   Category
                 </label>
+                {isDuplicateMode && selectedCategory?.isArchived && (
+                  <p className="text-xs text-muted-foreground">
+                    This category is archived. Choose an active category for the duplicate.
+                  </p>
+                )}
                 <div className="grid grid-cols-3 gap-2">
                   {filteredCategories.map((c) => (
                     <button
@@ -218,7 +240,7 @@ export function TransactionModal({
             <div className="p-4 border-t border-border mt-auto">
               <button
                 onClick={handleSave}
-                disabled={!amount || !category || Number(amount) <= 0}
+                disabled={!amount || !hasValidCategory || Number(amount) <= 0}
                 className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-primary text-primary-foreground font-bold text-lg shadow-lg shadow-primary/25 hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none disabled:shadow-none transition-all cursor-pointer"
               >
                 <Check className="w-5 h-5" />

@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { Layout } from '@/components/layout';
 import { useData, TransactionType, Transaction } from '@/contexts/data-context';
 import { useTheme } from '@/contexts/theme-context';
-import { CATEGORIES } from '@/lib/constants';
 import { formatCurrency, cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { Filter, Trash2, Search, ChevronDown, ChevronUp, X, Pencil, Copy, Check } from 'lucide-react';
@@ -98,7 +97,7 @@ const MONTHS = [
 ];
 
 export default function Transactions() {
-  const { transactions, deleteTransaction } = useData();
+  const { transactions, categories, deleteTransaction } = useData();
   const { currency } = useTheme();
 
   const [filterType, setFilterType] = useState<TransactionType | 'all'>('all');
@@ -116,7 +115,9 @@ export default function Transactions() {
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [duplicateTx, setDuplicateTx] = useState<Transaction | null>(null);
 
-  const getCategory = (id: string) => CATEGORIES.find(c => c.id === id) || CATEGORIES[CATEGORIES.length - 1];
+  const getCategory = (id: string) =>
+    categories.find((category) => category.id === id) ??
+    { id, name: id, icon: "📦" };
 
   const availableYears = useMemo(() => {
     const years = [...new Set(transactions.map(t => t.date.substring(0, 4)))];
@@ -150,22 +151,24 @@ export default function Transactions() {
     if (minAmount && tx.amount < Number(minAmount)) return false;
     if (maxAmount && tx.amount > Number(maxAmount)) return false;
     return true;
-  }), [transactions, filterType, searchTerm, dateFrom, dateTo, filterMonthNum, filterMonthYear, filterYear, minAmount, maxAmount]);
+  }), [transactions, categories, filterType, searchTerm, dateFrom, dateTo, filterMonthNum, filterMonthYear, filterYear, minAmount, maxAmount]);
 
   // Category breakdown of filtered transactions
   const categoryBreakdown = useMemo(() => {
     const map = new Map<string, { income: number; expense: number }>();
     filtered.forEach(tx => {
-      const cat = getCategory(tx.category);
-      if (!map.has(cat.name)) map.set(cat.name, { income: 0, expense: 0 });
-      const entry = map.get(cat.name)!;
+      if (!map.has(tx.category)) map.set(tx.category, { income: 0, expense: 0 });
+      const entry = map.get(tx.category)!;
       if (tx.type === 'income') entry.income += tx.amount;
       else entry.expense += tx.amount;
     });
     return Array.from(map.entries())
-      .map(([name, v]) => ({ name, cat: CATEGORIES.find(c => c.name === name)!, ...v, total: v.income + v.expense }))
+      .map(([id, v]) => {
+        const cat = getCategory(id);
+        return { name: cat.name, cat, ...v, total: v.income + v.expense };
+      })
       .sort((a, b) => b.total - a.total);
-  }, [filtered]);
+  }, [filtered, categories]);
 
   const filteredIncome = useMemo(() => filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0), [filtered]);
   const filteredExpense = useMemo(() => filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0), [filtered]);

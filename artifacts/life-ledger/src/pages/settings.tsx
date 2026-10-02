@@ -4,7 +4,8 @@ import { Layout } from "@/components/layout";
 import { useAuth } from "@/contexts/auth-context";
 import { useTheme } from "@/contexts/theme-context";
 import { useData } from "@/contexts/data-context";
-import { CATEGORIES, CURRENCIES } from "@/lib/constants";
+import { CURRENCIES } from "@/lib/constants";
+import { CategoryManager } from "@/components/category-manager";
 import {
   Camera,
   Download,
@@ -30,7 +31,7 @@ export default function Settings() {
   const { user, logout, updateDisplayName } = useAuth();
   const { theme, setTheme, currency, setCurrency, avatar, setAvatar } =
     useTheme();
-  const { transactions, budgets, clearAllData } = useData();
+  const { transactions, budgets, categories, clearAllData } = useData();
   const {
     hasPin,
     pinLength: savedPinLength,
@@ -178,7 +179,7 @@ export default function Settings() {
 
   const handleExportCSV = () => {
     const getCategoryName = (categoryId: string) =>
-      CATEGORIES.find((category) => category.id === categoryId)?.name ??
+      categories.find((category) => category.id === categoryId)?.name ??
       categoryId;
     const escapeCsvCell = (value: string | number) => {
       const text = String(value).replace(/"/g, '""');
@@ -370,6 +371,8 @@ export default function Settings() {
               </div>
             </div>
           </div>
+
+          <CategoryManager />
 
           {/* Security */}
           <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 shadow-sm">

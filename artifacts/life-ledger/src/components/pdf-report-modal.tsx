@@ -22,7 +22,6 @@ import {
 import { useData } from "@/contexts/data-context";
 import { useTheme } from "@/contexts/theme-context";
 import { useAuth } from "@/contexts/auth-context";
-import { CATEGORIES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -86,7 +85,7 @@ const MONTH_NAMES_FULL = [
 
 export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
   const { user } = useAuth();
-  const { transactions, budgets } = useData();
+  const { transactions, budgets, categories } = useData();
   const { currency } = useTheme();
 
   const today = useMemo(() => new Date(), []);
@@ -258,7 +257,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
     try {
       const doc = new jsPDF();
       const getCat = (id: string) =>
-        CATEGORIES.find((c) => c.id === id)?.name ?? id;
+        categories.find((category) => category.id === id)?.name ?? id;
       const now = format(new Date(), "MMMM d, yyyy");
       const primary: [number, number, number] = [30, 215, 96];
       const reportLabel = allTime ? "All Time" : rangeLabel;
