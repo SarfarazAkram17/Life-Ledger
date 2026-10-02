@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import type { PinLength } from '@/lib/pin-types';
+import React, { useEffect, useRef } from "react";
+import type { PinLength } from "@/lib/pin-types";
 
 interface PinDigitBoxesProps {
   value: string;
@@ -28,9 +28,13 @@ export function PinDigitBoxes({
 
   const enterDigits = (index: number, incoming: string) => {
     if (index > value.length) return;
-    const digits = incoming.replace(/\D/g, '').slice(0, length - index);
+    const digits = incoming.replace(/\D/g, "").slice(0, length - index);
     if (!digits) return;
-    const nextValue = (value.slice(0, index) + digits + value.slice(index + digits.length)).slice(0, length);
+    const nextValue = (
+      value.slice(0, index) +
+      digits +
+      value.slice(index + digits.length)
+    ).slice(0, length);
     onChange(nextValue);
     inputRefs.current[Math.min(index + digits.length, length - 1)]?.focus();
   };
@@ -46,32 +50,40 @@ export function PinDigitBoxes({
   };
 
   return (
-    <div role="group" aria-label={label} className="flex gap-2 sm:gap-3">
+    <div
+      role="group"
+      aria-label={label}
+      className="flex flex-wrap gap-1 sm:gap-3"
+    >
       {Array.from({ length }, (_, index) => (
         <input
           key={index}
-          ref={element => { inputRefs.current[index] = element; }}
+          ref={(element) => {
+            inputRefs.current[index] = element;
+          }}
           type="password"
           inputMode="numeric"
           autoComplete="off"
           pattern="[0-9]*"
           maxLength={1}
-          value={value[index] ?? ''}
+          value={value[index] ?? ""}
           autoFocus={autoFocus && index === 0}
           disabled={disabled}
-          onFocus={event => event.currentTarget.select()}
-          onChange={event => enterDigits(index, event.target.value)}
-          onKeyDown={event => {
-            if (event.key === 'Backspace') {
+          onFocus={(event) => event.currentTarget.select()}
+          onChange={(event) => enterDigits(index, event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Backspace") {
               event.preventDefault();
               removeDigit(index);
             }
-            if (event.key === 'ArrowLeft' && index > 0) inputRefs.current[index - 1]?.focus();
-            if (event.key === 'ArrowRight' && index < length - 1) inputRefs.current[index + 1]?.focus();
+            if (event.key === "ArrowLeft" && index > 0)
+              inputRefs.current[index - 1]?.focus();
+            if (event.key === "ArrowRight" && index < length - 1)
+              inputRefs.current[index + 1]?.focus();
           }}
-          onPaste={event => {
+          onPaste={(event) => {
             event.preventDefault();
-            enterDigits(index, event.clipboardData.getData('text'));
+            enterDigits(index, event.clipboardData.getData("text"));
           }}
           aria-label={`${label}, digit ${index + 1} of ${length}`}
           data-testid={index === 0 ? testId : `${testId}-${index + 1}`}

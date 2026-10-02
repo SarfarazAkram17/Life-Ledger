@@ -16,7 +16,7 @@ export default function Analytics() {
   const currentMonthStr = format(new Date(), "yyyy-MM");
   const isViewingOtherMonth = activeMonthStr !== currentMonthStr;
 
-  const categoryStats = useMemo(() => {
+  const spedndingsStats = useMemo(() => {
     const expensesThisMonth = transactions.filter(
       (t) => t.type === "expense" && t.date.startsWith(activeMonthStr),
     );
@@ -216,12 +216,12 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* Earnings by Category */}
+        {/* Earnings by Source */}
         <div>
           <div className="flex items-end justify-between gap-3 mb-3 sm:mb-4">
             <div>
               <h2 className="text-lg sm:text-xl font-bold">
-                Earnings by Category
+                Earnings by Source
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                 Income received this month, grouped by source
@@ -234,7 +234,7 @@ export default function Analytics() {
                 </span>
                 <span className="font-bold text-income text-sm sm:text-base">
                   {formatCurrency(
-                    earningStats.reduce((sum, cat) => sum + cat.amount, 0),
+                    earningStats.reduce((sum, ear) => sum + ear.amount, 0),
                     currency,
                   )}
                 </span>
@@ -248,34 +248,34 @@ export default function Analytics() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-              {earningStats.map((cat) => (
+              {earningStats.map((ear) => (
                 <div
-                  key={cat.id}
-                  data-testid={`card-earning-category-${cat.id}`}
+                  key={ear.id}
+                  data-testid={`card-earning-category-${ear.id}`}
                   className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow"
                 >
                   <div className="flex justify-between items-center mb-2 sm:mb-3 gap-2">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                       <div className="text-xl sm:text-2xl shrink-0">
-                        {cat.icon}
+                        {ear.icon}
                       </div>
                       <span className="font-semibold text-foreground text-sm sm:text-base truncate">
-                        {cat.name}
+                        {ear.name}
                       </span>
                     </div>
                     <div className="text-right shrink-0">
                       <span className="block font-bold text-income text-sm sm:text-base">
-                        {formatCurrency(cat.amount, currency)}
+                        {formatCurrency(ear.amount, currency)}
                       </span>
                       <span className="text-xs font-medium text-muted-foreground">
-                        {cat.percentage.toFixed(1)}%
+                        {ear.percentage.toFixed(1)}%
                       </span>
                     </div>
                   </div>
                   <div className="w-full h-2 sm:h-2.5 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-income transition-all duration-1000 ease-out"
-                      style={{ width: `${cat.percentage}%` }}
+                      style={{ width: `${ear.percentage}%` }}
                     />
                   </div>
                 </div>
@@ -284,45 +284,65 @@ export default function Analytics() {
           )}
         </div>
 
-        {/* Category Breakdown */}
+        {/* Spendings by Category */}
         <div>
-          <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">
-            Spending by Category
-          </h2>
+          <div className="flex items-end justify-between gap-3 mb-3 sm:mb-4">
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold">
+                Spendings by Category
+              </h2>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                Your expenses this month, broken down by category
+              </p>
+            </div>
+            {spedndingsStats.length > 0 && (
+              <p className="text-right shrink-0">
+                <span className="block text-xs text-muted-foreground">
+                  Total Expense
+                </span>
+                <span className="font-bold text-expense text-sm sm:text-base">
+                  {formatCurrency(
+                    spedndingsStats.reduce((sum, spen) => sum + spen.amount, 0),
+                    currency,
+                  )}
+                </span>
+              </p>
+            )}
+          </div>
 
-          {categoryStats.length === 0 ? (
+          {spedndingsStats.length === 0 ? (
             <div className="bg-card rounded-2xl border border-border p-6 sm:p-8 text-center text-muted-foreground text-sm">
               No expenses this month.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-              {categoryStats.map((cat) => (
+              {spedndingsStats.map((spen) => (
                 <div
-                  key={cat.id}
+                  key={spen.id}
                   className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow"
                 >
                   <div className="flex justify-between items-center mb-2 sm:mb-3 gap-2">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                       <div className="text-xl sm:text-2xl shrink-0">
-                        {cat.icon}
+                        {spen.icon}
                       </div>
                       <span className="font-semibold text-foreground text-sm sm:text-base truncate">
-                        {cat.name}
+                        {spen.name}
                       </span>
                     </div>
                     <div className="text-right shrink-0">
-                      <span className="block font-bold text-foreground text-sm sm:text-base">
-                        {formatCurrency(cat.amount, currency)}
+                      <span className="block font-bold text-expense text-sm sm:text-base">
+                        {formatCurrency(spen.amount, currency)}
                       </span>
                       <span className="text-xs font-medium text-muted-foreground">
-                        {cat.percentage.toFixed(1)}%
+                        {spen.percentage.toFixed(1)}%
                       </span>
                     </div>
                   </div>
                   <div className="w-full h-2 sm:h-2.5 bg-muted rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-primary transition-all duration-1000 ease-out"
-                      style={{ width: `${cat.percentage}%` }}
+                      className="h-full bg-expense transition-all duration-1000 ease-out"
+                      style={{ width: `${spen.percentage}%` }}
                     ></div>
                   </div>
                 </div>

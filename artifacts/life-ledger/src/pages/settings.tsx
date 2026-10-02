@@ -42,6 +42,7 @@ export default function Settings() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [csvExportNotice, setCsvExportNotice] = useState("");
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [currencySearch, setCurrencySearch] = useState("");
 
@@ -229,9 +230,11 @@ export default function Settings() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `lifeledger_${new Date().toISOString().split("T")[0]}.csv`;
+    const filename = `lifeledger_${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = filename;
     a.click();
-    window.URL.revokeObjectURL(url);
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    setCsvExportNotice(`CSV download started: ${filename}`);
   };
 
   const filteredCurrencies = CURRENCIES.filter(
@@ -246,7 +249,7 @@ export default function Settings() {
 
   return (
     <Layout>
-      <div className="space-y-5 sm:space-y-8 max-w-3xl mx-auto animate-in fade-in duration-500 pb-10">
+      <div className="space-y-5 sm:space-y-8 max-w-full mx-auto animate-in fade-in duration-500 pb-10">
         <h1 className="text-2xl sm:text-3xl font-bold">Settings</h1>
 
         {/* Settings Header */}
@@ -626,6 +629,15 @@ export default function Settings() {
                 PDF Report
               </button>
             </div>
+            {csvExportNotice && (
+              <p
+                role="status"
+                aria-live="polite"
+                className="mt-3 text-sm text-income"
+              >
+                {csvExportNotice}
+              </p>
+            )}
             <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-border">
               <button
                 onClick={() => setConfirmClear(true)}

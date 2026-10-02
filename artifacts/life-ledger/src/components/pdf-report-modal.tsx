@@ -96,23 +96,46 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
   const [calView, setCalView] = useState<Date>(today);
   const [generating, setGenerating] = useState(false);
 
-  const allTimeStart = useMemo(() => {
-    const dates = [
-      ...transactions.map((tx) => parseISO(tx.date)),
-      ...budgets.map((budget) => parseISO(`${budget.monthKey}-01`)),
-    ].filter((date) => !Number.isNaN(date.getTime()));
-    if (dates.length === 0) return startOfDay(today);
-    return startOfDay(
-      new Date(Math.min(...dates.map((date) => date.getTime()))),
-    );
+  const { allTimeStart, allTimeEnd } = useMemo(() => {
+    const transactionDates = transactions.flatMap((tx) => {
+      const date = parseISO(tx.date);
+      return Number.isNaN(date.getTime()) ? [] : [date];
+    });
+    const budgetMonths = budgets.flatMap((budget) => {
+      const date = parseISO(`${budget.monthKey}-01`);
+      return Number.isNaN(date.getTime()) ? [] : [date];
+    });
+    const starts = [
+      ...transactionDates.map((date) => startOfDay(date)),
+      ...budgetMonths.map((date) => startOfMonth(date)),
+    ];
+    const ends = [
+      ...transactionDates.map((date) => endOfDay(date)),
+      ...budgetMonths.map((date) => endOfMonth(date)),
+    ];
+
+    if (starts.length === 0) {
+      return { allTimeStart: startOfDay(today), allTimeEnd: endOfDay(today) };
+    }
+
+    return {
+      allTimeStart: starts.reduce((earliest, date) =>
+        date < earliest ? date : earliest,
+      ),
+      allTimeEnd: ends.reduce((latest, date) =>
+        date > latest ? date : latest,
+      ),
+    };
   }, [transactions, budgets, today]);
+  const calendarMaxDate =
+    allTimeEnd > endOfDay(today) ? allTimeEnd : endOfDay(today);
 
   // Compute date range
   const { rangeStart, rangeEnd, rangeLabel } = useMemo(() => {
     let start: Date, end: Date, label: string;
     if (periodType === "all") {
       start = allTimeStart;
-      end = endOfDay(today);
+      end = allTimeEnd;
       label = "All Time";
     } else if (periodType === "day") {
       start = startOfDay(selectedDate);
@@ -133,7 +156,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
       label = `${selectedDate.getFullYear()}`;
     }
     return { rangeStart: start, rangeEnd: end, rangeLabel: label };
-  }, [periodType, selectedDate, allTimeStart, today]);
+  }, [periodType, selectedDate, allTimeStart, allTimeEnd]);
 
   const filteredTxs = useMemo(() => {
     return transactions.filter((tx) => {
@@ -143,11 +166,10 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
   }, [transactions, rangeStart, rangeEnd]);
 
   const filteredBudgets = useMemo(() => {
-    const startKey = format(rangeStart, "yyyy-MM");
-    const endKey = format(rangeEnd, "yyyy-MM");
-    return budgets.filter(
-      (b) => b.monthKey >= startKey && b.monthKey <= endKey,
-    );
+    return budgets.filter((b) => {
+      const bd = new Date(b.monthKey + "-01");
+      return bd >= startOfMonth(rangeStart) && bd <= startOfMonth(rangeEnd);
+    });
   }, [budgets, rangeStart, rangeEnd]);
 
   const filteredTotals = useMemo(() => {
@@ -178,7 +200,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
 
   const inSelectedRange = (d: Date): boolean => {
     if (periodType === "all")
-      return d >= startOfDay(allTimeStart) && d <= startOfDay(today);
+      return d >= startOfDay(allTimeStart) && d <= startOfDay(allTimeEnd);
     if (periodType === "day") return isSameDay(d, selectedDate);
     if (periodType === "week") {
       const ws = getWeekStart(selectedDate);
@@ -196,7 +218,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
     return isSameDay(d, startOfYear(selectedDate));
   };
   const isEnd = (d: Date): boolean => {
-    if (periodType === "all") return isSameDay(d, today);
+    if (periodType === "all") return isSameDay(d, allTimeEnd);
     if (periodType === "day") return isSameDay(d, selectedDate);
     if (periodType === "week")
       return isSameDay(d, getWeekEnd(getWeekStart(selectedDate)));
@@ -219,7 +241,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
 
   const changePeriod = (pt: PeriodType) => {
     setPeriodType(pt);
-    setCalView(pt === "all" ? today : selectedDate);
+    setCalView(pt === "all" ? allTimeStart : selectedDate);
   };
 
   const formatCurrency = (amount: number, currency: string = "USD"): string => {
@@ -240,6 +262,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
       const now = format(new Date(), "MMMM d, yyyy");
       const primary: [number, number, number] = [30, 215, 96];
       const reportLabel = allTime ? "All Time" : rangeLabel;
+      const reportDateRange = `${format(rangeStart, "MMM d, yyyy")} – ${format(rangeEnd, "MMM d, yyyy")}`;
       const reportTransactions = allTime ? transactions : filteredTxs;
       const reportBudgets = allTime ? budgets : filteredBudgets;
       const reportTotals = allTime
@@ -256,7 +279,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
 
       // Header banner
       doc.setFillColor(...primary);
-      doc.rect(0, 0, 210, 40, "F");
+      doc.rect(0, 0, 210, 42, "F");
       doc.setTextColor(10, 10, 10);
       doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
@@ -264,10 +287,14 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.text(
-        `Period: ${reportLabel}   |   Generated: ${now}   |   ${user?.displayName ?? ""}`,
+        `Period: ${reportLabel}${allTime ? ` (${reportDateRange})` : ""}`,
         14,
-        30,
+        28,
+        { maxWidth: 182 },
       );
+      doc.text(`Generated: ${now}   |   ${user?.displayName ?? ""}`, 14, 36, {
+        maxWidth: 182,
+      });
 
       // Balance Overview
       doc.setTextColor(0, 0, 0);
@@ -374,7 +401,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
             )
             .reduce((s, t) => s + t.amount, 0);
           return [
-            format(parseISO(b.monthKey + "-01"), "MMMM yyyy"),
+            format(new Date(b.monthKey + "-01"), "MMMM yyyy"),
             getCat(b.category),
             formatCurrency(b.amount, currency),
             formatCurrency(spent, currency),
@@ -417,13 +444,19 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
       );
     } finally {
       setGenerating(false);
-      onClose();
     }
   };
 
   const days = buildDays(calView);
-  const currentYear = today.getFullYear();
-  const years = Array.from({ length: 21 }, (_, i) => currentYear - 10 + i);
+  const firstYear = Math.min(
+    today.getFullYear() - 10,
+    allTimeStart.getFullYear(),
+  );
+  const lastYear = Math.max(today.getFullYear(), calendarMaxDate.getFullYear());
+  const years = Array.from(
+    { length: lastYear - firstYear + 1 },
+    (_, i) => firstYear + i,
+  );
 
   return (
     <AnimatePresence>
@@ -490,45 +523,20 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                         sub: `${today.getFullYear()}`,
                         preset: "this_year" as const,
                       },
-                    ].map(({ label, sub, preset }) => {
-                      const isSelected =
-                        (preset === "today" &&
-                          periodType === "day" &&
-                          isSameDay(selectedDate, today)) ||
-                        (preset === "this_week" &&
-                          periodType === "week" &&
-                          isSameDay(
-                            getWeekStart(selectedDate),
-                            getWeekStart(today),
-                          )) ||
-                        (preset === "this_month" &&
-                          periodType === "month" &&
-                          isSameMonth(selectedDate, today)) ||
-                        (preset === "this_year" &&
-                          periodType === "year" &&
-                          selectedDate.getFullYear() === today.getFullYear());
-
-                      return (
-                        <button
-                          key={preset}
-                          onClick={() => setPreset(preset)}
-                          aria-pressed={isSelected}
-                          className={cn(
-                            "flex flex-col items-start px-3 py-2.5 rounded-xl border transition-all cursor-pointer text-left",
-                            isSelected
-                              ? "bg-primary/20 border-primary ring-1 ring-primary/20"
-                              : "bg-primary/10 hover:bg-primary/20 border-primary/20",
-                          )}
-                        >
-                          <span className="text-xs font-bold text-primary">
-                            {label}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground mt-0.5">
-                            {sub}
-                          </span>
-                        </button>
-                      );
-                    })}
+                    ].map(({ label, sub, preset }) => (
+                      <button
+                        key={preset}
+                        onClick={() => setPreset(preset)}
+                        className="flex flex-col items-start px-3 py-2.5 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-all cursor-pointer text-left"
+                      >
+                        <span className="text-xs font-bold text-primary">
+                          {label}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground mt-0.5">
+                          {sub}
+                        </span>
+                      </button>
+                    ))}
                     <button
                       type="button"
                       onClick={() => changePeriod("all")}
@@ -588,11 +596,11 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                       <>
                         {/* Calendar navigation */}
                         {(() => {
-                          const todayNorm = new Date(today);
-                          todayNorm.setHours(0, 0, 0, 0);
+                          const maxDate =
+                            periodType === "all" ? allTimeEnd : calendarMaxDate;
                           const canNextMonth =
                             calView.getFullYear() * 12 + calView.getMonth() <
-                            todayNorm.getFullYear() * 12 + todayNorm.getMonth();
+                            maxDate.getFullYear() * 12 + maxDate.getMonth();
                           const canPrevMonth =
                             periodType !== "all" ||
                             calView.getFullYear() * 12 + calView.getMonth() >
@@ -651,7 +659,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                         {periodType === "all" && (
                           <p className="mb-2 rounded-lg bg-primary/10 px-2 py-1.5 text-center text-[10px] font-medium text-primary">
                             Full range: {format(allTimeStart, "MMM d, yyyy")} –{" "}
-                            {format(today, "MMM d, yyyy")}
+                            {format(allTimeEnd, "MMM d, yyyy")}
                           </p>
                         )}
                         <div className="grid grid-cols-7 text-center mb-1">
@@ -667,30 +675,37 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                         <div className="grid grid-cols-7 gap-y-0.5">
                           {days.map((d, i) => {
                             if (!d) return <div key={`e-${i}`} />;
-                            const todayNorm = new Date(today);
-                            todayNorm.setHours(0, 0, 0, 0);
-                            const isFuture = d > todayNorm;
-                            const inRange = !isFuture && inSelectedRange(d);
-                            const s = !isFuture && isStart(d);
-                            const e = !isFuture && isEnd(d);
+                            const isBeforeAllTime =
+                              periodType === "all" &&
+                              d < startOfDay(allTimeStart);
+                            const isAfterSelectableEnd =
+                              periodType === "all"
+                                ? d > startOfDay(allTimeEnd)
+                                : d > startOfDay(calendarMaxDate);
+                            const isUnavailable =
+                              isBeforeAllTime || isAfterSelectableEnd;
+                            const inRange =
+                              !isUnavailable && inSelectedRange(d);
+                            const s = !isUnavailable && isStart(d);
+                            const e = !isUnavailable && isEnd(d);
                             const isT = isSameDay(d, today);
                             const inMonth = d.getMonth() === calView.getMonth();
                             return (
                               <button
                                 key={i}
                                 onClick={() => {
-                                  if (!isFuture) {
+                                  if (!isUnavailable) {
                                     if (periodType === "all")
                                       setPeriodType("day");
                                     setSelectedDate(d);
                                     setCalView(d);
                                   }
                                 }}
-                                disabled={isFuture}
+                                disabled={isUnavailable}
                                 className={cn(
                                   "h-8 w-full flex items-center justify-center text-xs transition-all",
                                   !inMonth && "opacity-25",
-                                  isFuture
+                                  isUnavailable
                                     ? "opacity-20 cursor-not-allowed"
                                     : "cursor-pointer",
                                   // range middle
@@ -714,7 +729,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                                   // hover for non-selected & not future
                                   !inRange &&
                                     inMonth &&
-                                    !isFuture &&
+                                    !isUnavailable &&
                                     "hover:bg-muted rounded-lg",
                                 )}
                               >
@@ -731,7 +746,8 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                       <>
                         {(() => {
                           const canNextYear =
-                            calView.getFullYear() < today.getFullYear();
+                            calView.getFullYear() <
+                            calendarMaxDate.getFullYear();
                           return (
                             <div className="flex items-center justify-between mb-3">
                               <button
@@ -774,9 +790,11 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                               selectedDate.getFullYear() ===
                                 calView.getFullYear();
                             const isFutureMonth =
-                              calView.getFullYear() > today.getFullYear() ||
-                              (calView.getFullYear() === today.getFullYear() &&
-                                idx > today.getMonth());
+                              calView.getFullYear() >
+                                calendarMaxDate.getFullYear() ||
+                              (calView.getFullYear() ===
+                                calendarMaxDate.getFullYear() &&
+                                idx > calendarMaxDate.getMonth());
                             return (
                               <button
                                 key={m}
@@ -813,27 +831,25 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                     {/* Year picker */}
                     {periodType === "year" && (
                       <div className="grid grid-cols-4 gap-1.5 max-h-44 overflow-y-auto pr-1">
-                        {years
-                          .filter((yr) => yr <= today.getFullYear())
-                          .map((yr) => {
-                            const sel = selectedDate.getFullYear() === yr;
-                            return (
-                              <button
-                                key={yr}
-                                onClick={() => {
-                                  setSelectedDate(new Date(yr, 0, 1));
-                                }}
-                                className={cn(
-                                  "py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer",
-                                  sel
-                                    ? "bg-primary text-primary-foreground"
-                                    : "hover:bg-muted text-foreground",
-                                )}
-                              >
-                                {yr}
-                              </button>
-                            );
-                          })}
+                        {years.map((yr) => {
+                          const sel = selectedDate.getFullYear() === yr;
+                          return (
+                            <button
+                              key={yr}
+                              onClick={() => {
+                                setSelectedDate(new Date(yr, 0, 1));
+                              }}
+                              className={cn(
+                                "py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                                sel
+                                  ? "bg-primary text-primary-foreground"
+                                  : "hover:bg-muted text-foreground",
+                              )}
+                            >
+                              {yr}
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
