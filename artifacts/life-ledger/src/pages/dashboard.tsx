@@ -20,6 +20,7 @@ import { Link } from "wouter";
 import { format, parseISO, isToday, isYesterday } from "date-fns";
 import { CATEGORIES } from "@/lib/constants";
 import { TransactionModal } from "@/components/transaction-modal";
+import { MonthPicker } from "@/components/month-picker";
 
 export default function Dashboard() {
   const { totals, transactions } = useData();
@@ -31,37 +32,60 @@ export default function Dashboard() {
   const [transactionModalMode, setTransactionModalMode] = useState<
     "edit" | "duplicate"
   >("edit");
-
-  const recentTransactions = transactions.slice(0, 5);
-
-  const monthComparison = useMemo(() => {
+  const [comparisonMonths, setComparisonMonths] = useState(() => {
     const currentMonthDate = new Date();
     const previousMonthDate = new Date(
       currentMonthDate.getFullYear(),
       currentMonthDate.getMonth() - 1,
       1,
     );
-    const currentMonthKey = format(currentMonthDate, "yyyy-MM");
-    const previousMonthKey = format(previousMonthDate, "yyyy-MM");
-    const current = { income: 0, expense: 0 };
-    const previous = { income: 0, expense: 0 };
-
-    transactions.forEach((transaction) => {
-      const target = transaction.date.startsWith(currentMonthKey)
-        ? current
-        : transaction.date.startsWith(previousMonthKey)
-          ? previous
-          : undefined;
-      if (target) target[transaction.type] += transaction.amount;
-    });
 
     return {
-      current,
-      previous,
-      currentMonthLabel: format(currentMonthDate, "MMMM"),
-      previousMonthLabel: format(previousMonthDate, "MMMM"),
+      first: format(currentMonthDate, "yyyy-MM"),
+      second: format(previousMonthDate, "yyyy-MM"),
     };
-  }, [transactions]);
+  });
+
+  const recentTransactions = transactions.slice(0, 5);
+
+  const monthComparison = useMemo(() => {
+    const first = { income: 0, expense: 0 };
+    const second = { income: 0, expense: 0 };
+
+    transactions.forEach((transaction) => {
+      const transactionMonth = transaction.date.slice(0, 7);
+      if (transactionMonth === comparisonMonths.first) {
+        first[transaction.type] += transaction.amount;
+      }
+      if (transactionMonth === comparisonMonths.second) {
+        second[transaction.type] += transaction.amount;
+      }
+    });
+
+    const getMonthLabel = (monthKey: string) =>
+      monthKey
+        ? format(parseISO(`${monthKey}-01`), "MMMM yyyy")
+        : "Select a month";
+
+    return {
+      first: {
+        ...first,
+        key: comparisonMonths.first,
+        label: getMonthLabel(comparisonMonths.first),
+      },
+      second: {
+        ...second,
+        key: comparisonMonths.second,
+        label: getMonthLabel(comparisonMonths.second),
+      },
+    };
+  }, [transactions, comparisonMonths.first, comparisonMonths.second]);
+
+  const hasValidMonthComparison = Boolean(
+    monthComparison.first.key &&
+    monthComparison.second.key &&
+    monthComparison.first.key !== monthComparison.second.key,
+  );
 
   const openTransactionModal = (
     transaction: Transaction,
@@ -150,113 +174,148 @@ export default function Dashboard() {
                 id="month-comparison-heading"
                 className="text-lg sm:text-xl font-bold"
               >
-                Month-over-month comparison
+                Compare any two months
               </h2>
               <p className="text-sm text-muted-foreground">
-                {monthComparison.currentMonthLabel} compared with{" "}
-                {monthComparison.previousMonthLabel}
+                {monthComparison.first.label} compared with{" "}
+                {monthComparison.second.label}
               </p>
             </div>
             <span className="text-xs text-muted-foreground">
-              Current month to date vs full last month
+              Income and spending by calendar month
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            {(
-              [
-                {
-                  key: "income",
-                  label: "Income",
-                  current: monthComparison.current.income,
-                  previous: monthComparison.previous.income,
-                  Icon: TrendingUp,
-                  amountClass: "text-income",
-                },
-                {
-                  key: "expense",
-                  label: "Spending",
-                  current: monthComparison.current.expense,
-                  previous: monthComparison.previous.expense,
-                  Icon: TrendingDown,
-                  amountClass: "text-expense",
-                },
-              ] as const
-            ).map((metric) => {
-              const difference = metric.current - metric.previous;
-              const hasBaseline = metric.previous > 0;
-              const favorable =
-                difference === 0
-                  ? null
-                  : metric.key === "income"
-                    ? difference > 0
-                    : difference < 0;
-              const trendClass =
-                favorable === null
-                  ? "bg-muted text-muted-foreground"
-                  : favorable
-                    ? "bg-income/10 text-income"
-                    : "bg-expense/10 text-expense";
-              const trendText = !hasBaseline
-                ? metric.current === 0
-                  ? "No activity in either month"
-                  : `No ${metric.label.toLowerCase()} last month`
-                : difference === 0
-                  ? "No change from last month"
-                  : `${difference > 0 ? "Up" : "Down"} ${((Math.abs(difference) / metric.previous) * 100).toFixed(1)}% vs last month`;
-              const TrendIcon = difference >= 0 ? TrendingUp : TrendingDown;
-              const Icon = metric.Icon;
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+            <div className="flex flex-col gap-1.5 text-sm font-medium text-foreground">
+              <span>First month</span>
+              <MonthPicker
+                value={comparisonMonths.first}
+                onChange={(month) =>
+                  setComparisonMonths((months) => ({ ...months, first: month }))
+                }
+                ariaLabel="First month to compare"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 text-sm font-medium text-foreground">
+              <span>Second month</span>
+              <MonthPicker
+                value={comparisonMonths.second}
+                onChange={(month) =>
+                  setComparisonMonths((months) => ({
+                    ...months,
+                    second: month,
+                  }))
+                }
+                ariaLabel="Second month to compare"
+              />
+            </div>
+          </div>
 
-              return (
-                <div
-                  key={metric.key}
-                  data-testid={`card-month-comparison-${metric.key}`}
-                  className="rounded-xl border border-border bg-background/50 p-4"
-                >
-                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <Icon className={cn("h-4 w-4", metric.amountClass)} />
-                    {metric.label}
-                  </div>
-                  <div className="flex flex-wrap items-end justify-between gap-3 mt-3">
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        {monthComparison.currentMonthLabel} to date
-                      </p>
-                      <p
+          {!hasValidMonthComparison ? (
+            <p
+              role="status"
+              className="rounded-xl border border-border bg-background/50 p-4 text-sm text-muted-foreground"
+            >
+              Choose two different months to compare.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              {(
+                [
+                  {
+                    key: "income",
+                    label: "Income",
+                    first: monthComparison.first.income,
+                    second: monthComparison.second.income,
+                    Icon: TrendingUp,
+                    amountClass: "text-income",
+                  },
+                  {
+                    key: "expense",
+                    label: "Spending",
+                    first: monthComparison.first.expense,
+                    second: monthComparison.second.expense,
+                    Icon: TrendingDown,
+                    amountClass: "text-expense",
+                  },
+                ] as const
+              ).map((metric) => {
+                const difference = metric.first - metric.second;
+                const hasBaseline = metric.second > 0;
+                const favorable =
+                  difference === 0
+                    ? null
+                    : metric.key === "income"
+                      ? difference > 0
+                      : difference < 0;
+                const trendClass =
+                  favorable === null
+                    ? "bg-muted text-muted-foreground"
+                    : favorable
+                      ? "bg-income/10 text-income"
+                      : "bg-expense/10 text-expense";
+                const trendText = !hasBaseline
+                  ? metric.first === 0
+                    ? "No activity in either month"
+                    : `No ${metric.label.toLowerCase()} in ${monthComparison.second.label}`
+                  : difference === 0
+                    ? `No change from ${monthComparison.second.label}`
+                    : `${difference > 0 ? "Up" : "Down"} ${((Math.abs(difference) / metric.second) * 100).toFixed(1)}% vs ${monthComparison.second.label}`;
+                const TrendIcon = difference >= 0 ? TrendingUp : TrendingDown;
+                const Icon = metric.Icon;
+
+                return (
+                  <div
+                    key={metric.key}
+                    data-testid={`card-month-comparison-${metric.key}`}
+                    className="rounded-xl border border-border bg-background/50 p-4"
+                  >
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <Icon className={cn("h-4 w-4", metric.amountClass)} />
+                      {metric.label}
+                    </div>
+                    <div className="flex flex-wrap items-end justify-between gap-3 mt-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          {monthComparison.first.label}
+                        </p>
+                        <p
+                          className={cn(
+                            "text-xl sm:text-2xl font-bold break-all",
+                            metric.amountClass,
+                          )}
+                        >
+                          {formatCurrency(metric.first, currency)}
+                        </p>
+                      </div>
+                      <span
+                        role="status"
+                        aria-label={`${metric.label}: ${trendText}`}
                         className={cn(
-                          "text-xl sm:text-2xl font-bold break-all",
-                          metric.amountClass,
+                          "inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold",
+                          trendClass,
                         )}
                       >
-                        {formatCurrency(metric.current, currency)}
-                      </p>
+                        {difference !== 0 && (
+                          <TrendIcon className="h-3.5 w-3.5" />
+                        )}
+                        {trendText}
+                      </span>
                     </div>
-                    <span
-                      role="status"
-                      aria-label={`${metric.label}: ${trendText}`}
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold",
-                        trendClass,
-                      )}
-                    >
-                      {difference !== 0 && (
-                        <TrendIcon className="h-3.5 w-3.5" />
-                      )}
-                      {trendText}
-                    </span>
+                    <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/70 pt-3 text-sm">
+                      <span className="text-muted-foreground">
+                        {monthComparison.second.label}
+                      </span>
+                      <span className="font-semibold text-foreground break-all text-right">
+                        {formatCurrency(metric.second, currency)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/70 pt-3 text-sm">
-                    <span className="text-muted-foreground">
-                      Last month ({monthComparison.previousMonthLabel})
-                    </span>
-                    <span className="font-semibold text-foreground break-all text-right">
-                      {formatCurrency(metric.previous, currency)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         {/* Quick Actions */}
