@@ -5,7 +5,7 @@ import { useTheme } from "@/contexts/theme-context";
 import { CATEGORIES } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
 import { format, parse, parseISO } from "date-fns";
-import { CalendarDays, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 type SelectedBreakdown = {
   categoryId: string;
   categoryName: string;
@@ -21,12 +27,25 @@ type SelectedBreakdown = {
   type: "income" | "expense";
 };
 
+const SpendingTrendChart = React.lazy(
+  () => import("@/components/spending-trend-chart"),
+);
+const IncomeTrendChart = React.lazy(
+  () => import("@/components/income-trend-chart"),
+);
+
 export default function Analytics() {
   const { transactions } = useData();
   const { currency } = useTheme();
   const [selectedBreakdown, setSelectedBreakdown] =
     useState<SelectedBreakdown | null>(null);
   const [activeChartDate, setActiveChartDate] = useState<string | null>(null);
+  const [selectedTrendCategoryId, setSelectedTrendCategoryId] = useState("");
+  const [selectedIncomeTrendSourceId, setSelectedIncomeTrendSourceId] =
+    useState("");
+  const [selectedTrendYear, setSelectedTrendYear] = useState(
+    new Date().getFullYear(),
+  );
   const [activeMonthStr, setActiveMonthStr] = useState(
     format(new Date(), "yyyy-MM"),
   );
@@ -113,6 +132,90 @@ export default function Analytics() {
     const maxVal = Math.max(...data.map((d) => Math.max(d.income, d.expense)));
     return { data, maxVal: maxVal > 0 ? maxVal : 100 };
   }, [transactions, activeMonthStr]);
+
+  const annualTrends = useMemo(() => {
+    const months = Array.from({ length: 12 }, (_, monthIndex) => {
+      const start = new Date(selectedTrendYear, monthIndex, 1);
+      return {
+        key: format(start, "yyyy-MM"),
+        label: format(start, "MMM"),
+        start,
+      };
+    });
+    const monthKeys = new Set(months.map((month) => month.key));
+    const incomeSourceAmounts: Record<string, Record<string, number>> = {};
+    const expenseCategoryAmounts: Record<string, Record<string, number>> = {};
+
+    for (const transaction of transactions) {
+      const monthKey = transaction.date.slice(0, 7);
+      if (!monthKeys.has(monthKey)) continue;
+
+      const amounts =
+        transaction.type === "income"
+          ? incomeSourceAmounts
+          : expenseCategoryAmounts;
+      amounts[transaction.category] ??= {};
+      amounts[transaction.category][monthKey] =
+        (amounts[transaction.category][monthKey] ?? 0) + transaction.amount;
+    }
+
+    const summarize = (amounts: Record<string, Record<string, number>>) =>
+      Object.entries(amounts)
+        .map(([id, monthlyAmounts]) => {
+          const category = CATEGORIES.find((item) => item.id === id);
+          return {
+            id,
+            name: category?.name ?? id,
+            icon: category?.icon ?? "📦",
+            total: Object.values(monthlyAmounts).reduce(
+              (sum, amount) => sum + amount,
+              0,
+            ),
+          };
+        })
+        .sort((a, b) => b.total - a.total);
+
+    return {
+      months,
+      incomeSources: summarize(incomeSourceAmounts),
+      expenseCategories: summarize(expenseCategoryAmounts),
+      incomeSourceAmounts,
+      expenseCategoryAmounts,
+    };
+  }, [transactions, selectedTrendYear]);
+
+  const effectiveTrendCategoryId = annualTrends.expenseCategories.some(
+    (category) => category.id === selectedTrendCategoryId,
+  )
+    ? selectedTrendCategoryId
+    : (annualTrends.expenseCategories[0]?.id ?? "");
+  const selectedTrendCategory = annualTrends.expenseCategories.find(
+    (category) => category.id === effectiveTrendCategoryId,
+  );
+  const effectiveIncomeTrendSourceId = annualTrends.incomeSources.some(
+    (source) => source.id === selectedIncomeTrendSourceId,
+  )
+    ? selectedIncomeTrendSourceId
+    : (annualTrends.incomeSources[0]?.id ?? "");
+  const selectedIncomeTrendSource = annualTrends.incomeSources.find(
+    (source) => source.id === effectiveIncomeTrendSourceId,
+  );
+  const spendingTrendData = annualTrends.months.map((month) => ({
+    monthStart: month.start.getTime(),
+    monthLabel: month.label,
+    amount:
+      annualTrends.expenseCategoryAmounts[effectiveTrendCategoryId]?.[
+        month.key
+      ] ?? 0,
+  }));
+  const incomeTrendData = annualTrends.months.map((month) => ({
+    monthStart: month.start.getTime(),
+    monthLabel: month.label,
+    amount:
+      annualTrends.incomeSourceAmounts[effectiveIncomeTrendSourceId]?.[
+        month.key
+      ] ?? 0,
+  }));
 
   const monthDate = parse(activeMonthStr, "yyyy-MM", new Date());
   const selectedTransactions = useMemo(() => {
@@ -218,13 +321,13 @@ export default function Analytics() {
                 >
                   <div
                     data-testid={`tooltip-chart-day-${d.day}`}
-                    className={`pointer-events-none absolute top-1 space-y-1 z-10 w-max rounded border border-border bg-popover p-2 text-center text-xs text-popover-foreground shadow-xl transition-opacity ${
+                    className={`pointer-events-none absolute top-1 z-10 w-max rounded border border-border bg-popover p-2 text-center text-xs text-popover-foreground shadow-xl transition-opacity ${
                       isSelected
                         ? "opacity-100"
                         : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
                     } ${tooltipAlignment}`}
                   >
-                    <span className="block font-bold">
+                    <span className="mb-0.5 block font-bold">
                       {format(parseISO(d.date), "MMMM d, yyyy")}
                     </span>
                     <span className="block text-income">
@@ -429,6 +532,218 @@ export default function Analytics() {
             </div>
           )}
         </div>
+
+        {/* Annual earning and spending trends */}
+        <section data-testid="section-yearly-trends" className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold sm:text-xl">Yearly Trends</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
+                Monthly earning and spending from January through December
+              </p>
+            </div>
+            <div
+              aria-label="Choose trend year"
+              className="flex w-full items-center justify-between gap-3 self-start rounded-xl border border-border bg-card px-3 py-2 sm:w-auto sm:self-auto"
+            >
+              <button
+                type="button"
+                data-testid="button-previous-trend-year"
+                aria-label={`Show ${selectedTrendYear - 1} trends`}
+                onClick={() => setSelectedTrendYear((year) => year - 1)}
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <ChevronLeft aria-hidden="true" className="h-5 w-5" />
+              </button>
+              <span
+                data-testid="label-trend-year"
+                aria-live="polite"
+                className="min-w-16 text-center text-base font-semibold tabular-nums"
+              >
+                {selectedTrendYear}
+              </span>
+              <button
+                type="button"
+                data-testid="button-next-trend-year"
+                aria-label={`Show ${selectedTrendYear + 1} trends`}
+                disabled={selectedTrendYear >= new Date().getFullYear()}
+                onClick={() => setSelectedTrendYear((year) => year + 1)}
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight aria-hidden="true" className="h-5 w-5" />
+              </button>
+              {selectedTrendYear !== new Date().getFullYear() && (
+                <button
+                  type="button"
+                  data-testid="button-current-trend-year"
+                  onClick={() => setSelectedTrendYear(new Date().getFullYear())}
+                  className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  This year
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
+            <section
+              data-testid="section-income-trends"
+              className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6"
+            >
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-base font-bold sm:text-lg">
+                    Earning by Source
+                  </h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
+                    Monthly Earning from each source in {selectedTrendYear}
+                  </p>
+                </div>
+                {annualTrends.incomeSources.length > 0 && (
+                  <div className="w-full shrink-0 sm:w-52">
+                    <label htmlFor="income-trend-source" className="sr-only">
+                      Income source
+                    </label>
+                    <Select
+                      value={effectiveIncomeTrendSourceId}
+                      onValueChange={setSelectedIncomeTrendSourceId}
+                    >
+                      <SelectTrigger
+                        id="income-trend-source"
+                        data-testid="select-income-trend-source"
+                        aria-label="Choose an income source"
+                        className="w-full"
+                      >
+                        <SelectValue placeholder="Choose a source" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {annualTrends.incomeSources.map((source) => (
+                          <SelectItem
+                            key={source.id}
+                            value={source.id}
+                            data-testid={`option-income-trend-source-${source.id}`}
+                          >
+                            {source.icon} {source.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              {annualTrends.incomeSources.length === 0 ? (
+                <div
+                  data-testid="empty-income-trend"
+                  className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground"
+                >
+                  No income data for {selectedTrendYear}.
+                </div>
+              ) : (
+                <div
+                  data-testid="chart-income-trend"
+                  role="img"
+                  aria-label={`Monthly income trend for ${selectedIncomeTrendSource?.name ?? "selected source"} in ${selectedTrendYear}`}
+                  className="h-56 w-full sm:h-64"
+                >
+                  <React.Suspense
+                    fallback={
+                      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                        Loading income trend…
+                      </div>
+                    }
+                  >
+                    <IncomeTrendChart
+                      data={incomeTrendData}
+                      currency={currency}
+                      sourceName={selectedIncomeTrendSource?.name ?? "Income"}
+                    />
+                  </React.Suspense>
+                </div>
+              )}
+            </section>
+
+            <section
+              data-testid="section-spending-trends"
+              className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6"
+            >
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-base font-bold sm:text-lg">
+                    Spending by Category
+                  </h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
+                    Monthly spending by category in {selectedTrendYear}
+                  </p>
+                </div>
+                {annualTrends.expenseCategories.length > 0 && (
+                  <div className="w-full shrink-0 sm:w-52">
+                    <label
+                      htmlFor="spending-trend-category"
+                      className="sr-only"
+                    >
+                      Spending category
+                    </label>
+                    <Select
+                      value={effectiveTrendCategoryId}
+                      onValueChange={setSelectedTrendCategoryId}
+                    >
+                      <SelectTrigger
+                        id="spending-trend-category"
+                        data-testid="select-spending-trend-category"
+                        aria-label="Choose a spending category"
+                        className="w-full"
+                      >
+                        <SelectValue placeholder="Choose a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {annualTrends.expenseCategories.map((category) => (
+                          <SelectItem
+                            key={category.id}
+                            value={category.id}
+                            data-testid={`option-spending-trend-category-${category.id}`}
+                          >
+                            {category.icon} {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              {annualTrends.expenseCategories.length === 0 ? (
+                <div
+                  data-testid="empty-spending-trend"
+                  className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground"
+                >
+                  No expense data for {selectedTrendYear}.
+                </div>
+              ) : (
+                <div
+                  data-testid="chart-spending-trend"
+                  role="img"
+                  aria-label={`Monthly spending trend for ${selectedTrendCategory?.name ?? "selected category"} in ${selectedTrendYear}`}
+                  className="h-56 w-full sm:h-64"
+                >
+                  <React.Suspense
+                    fallback={
+                      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                        Loading spending trend…
+                      </div>
+                    }
+                  >
+                    <SpendingTrendChart
+                      data={spendingTrendData}
+                      currency={currency}
+                      categoryName={selectedTrendCategory?.name ?? "Spending"}
+                    />
+                  </React.Suspense>
+                </div>
+              )}
+            </section>
+          </div>
+        </section>
       </div>
 
       <Dialog
