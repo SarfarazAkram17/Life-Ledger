@@ -6,7 +6,7 @@ import { useTheme } from '@/contexts/theme-context';
 import { CATEGORIES } from '@/lib/constants';
 import { formatCurrency, cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
-import { Filter, Trash2, Search, ChevronDown, ChevronUp, X, Pencil, Check } from 'lucide-react';
+import { Filter, Trash2, Search, ChevronDown, ChevronUp, X, Pencil, Copy, Check } from 'lucide-react';
 import { DatePicker } from '@/components/date-picker';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ConfirmModal } from '@/components/confirm-modal';
@@ -114,6 +114,7 @@ export default function Transactions() {
   const [showByCategory, setShowByCategory] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editTx, setEditTx] = useState<Transaction | null>(null);
+  const [duplicateTx, setDuplicateTx] = useState<Transaction | null>(null);
 
   const getCategory = (id: string) => CATEGORIES.find(c => c.id === id) || CATEGORIES[CATEGORIES.length - 1];
 
@@ -410,18 +411,38 @@ export default function Transactions() {
                       <div className={cn('font-bold text-lg whitespace-nowrap min-w-[100px] text-right', isIncome ? 'text-income' : 'text-expense')}>
                         {isIncome ? '+' : '−'}{formatCurrency(tx.amount, currency)}
                       </div>
-                      <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all">
+                      <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all">
                         <button
-                          onClick={() => setEditTx(tx)}
+                          type="button"
+                          onClick={() => {
+                            setDuplicateTx(null);
+                            setEditTx(tx);
+                          }}
                           className="p-2 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all cursor-pointer"
-                          aria-label="Edit transaction"
+                          aria-label={`Edit ${cat.name} transaction`}
+                          title="Edit transaction"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
+                          type="button"
+                          data-testid={`button-duplicate-transaction-${tx.id}`}
+                          onClick={() => {
+                            setEditTx(null);
+                            setDuplicateTx(tx);
+                          }}
+                          className="p-2 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all cursor-pointer"
+                          aria-label={`Duplicate ${cat.name} transaction`}
+                          title="Duplicate transaction"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setDeleteId(tx.id)}
                           className="p-2 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all cursor-pointer"
-                          aria-label="Delete transaction"
+                          aria-label={`Delete ${cat.name} transaction`}
+                          title="Delete transaction"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -435,11 +456,15 @@ export default function Transactions() {
         </div>
       </div>
 
-      {/* Edit Modal */}
+      {/* Edit and duplicate transaction modal */}
       <TransactionModal
-        isOpen={editTx !== null}
-        onClose={() => setEditTx(null)}
+        isOpen={editTx !== null || duplicateTx !== null}
+        onClose={() => {
+          setEditTx(null);
+          setDuplicateTx(null);
+        }}
         editTx={editTx ?? undefined}
+        duplicateTx={duplicateTx ?? undefined}
       />
 
       <ConfirmModal

@@ -4,12 +4,29 @@ import { useData } from "@/contexts/data-context";
 import { useTheme } from "@/contexts/theme-context";
 import { CATEGORIES } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
-import { format, parse } from "date-fns";
-import { CalendarDays } from "lucide-react";
+import { format, parse, parseISO } from "date-fns";
+import { CalendarDays, ChevronRight } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+type SelectedBreakdown = {
+  categoryId: string;
+  categoryName: string;
+  icon: string;
+  type: "income" | "expense";
+};
 
 export default function Analytics() {
   const { transactions } = useData();
   const { currency } = useTheme();
+  const [selectedBreakdown, setSelectedBreakdown] =
+    useState<SelectedBreakdown | null>(null);
+  const [activeChartDate, setActiveChartDate] = useState<string | null>(null);
   const [activeMonthStr, setActiveMonthStr] = useState(
     format(new Date(), "yyyy-MM"),
   );
@@ -83,6 +100,7 @@ export default function Analytics() {
       const dayTxs = transactions.filter((t) => t.date === dateStr);
       return {
         day: i + 1,
+        date: dateStr,
         income: dayTxs
           .filter((t) => t.type === "income")
           .reduce((s, t) => s + t.amount, 0),
@@ -97,6 +115,22 @@ export default function Analytics() {
   }, [transactions, activeMonthStr]);
 
   const monthDate = parse(activeMonthStr, "yyyy-MM", new Date());
+  const selectedTransactions = useMemo(() => {
+    if (!selectedBreakdown) return [];
+
+    return transactions
+      .filter(
+        (transaction) =>
+          transaction.type === selectedBreakdown.type &&
+          transaction.category === selectedBreakdown.categoryId &&
+          transaction.date.startsWith(activeMonthStr),
+      )
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [transactions, selectedBreakdown, activeMonthStr]);
+  const selectedTotal = selectedTransactions.reduce(
+    (sum, transaction) => sum + transaction.amount,
+    0,
+  );
 
   return (
     <Layout>
@@ -165,26 +199,40 @@ export default function Analytics() {
             {chartData.data.map((d) => {
               const incomeHeight = `${(d.income / chartData.maxVal) * 100}%`;
               const expenseHeight = `${(d.expense / chartData.maxVal) * 100}%`;
+              const isSelected = activeChartDate === d.date;
+              const tooltipAlignment =
+                d.day <= 6
+                  ? "left-0 translate-x-0"
+                  : d.day > chartData.data.length - 6
+                    ? "right-0 translate-x-0"
+                    : "left-1/2 -translate-x-1/2";
               return (
-                <div
-                  key={d.day}
-                  className="flex-1 flex flex-col justify-end items-center h-full group relative"
+                <button
+                  key={d.date}
+                  type="button"
+                  data-testid={`button-chart-day-${d.day}`}
+                  aria-label={`${format(parseISO(d.date), "MMMM d, yyyy")}: income ${formatCurrency(d.income, currency)}, expense ${formatCurrency(d.expense, currency)}`}
+                  aria-pressed={isSelected}
+                  onClick={() => setActiveChartDate(isSelected ? null : d.date)}
+                  className="group relative flex h-full flex-1 cursor-pointer appearance-none flex-col items-center justify-end rounded-t-sm border-0 bg-transparent p-0 text-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                 >
-                  <div className="absolute -top-10 bg-popover border border-border text-popover-foreground text-xs p-1.5 rounded shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 w-max text-center">
-                    <span className="block font-bold mb-0.5">Day {d.day}</span>
-                    {d.income > 0 && (
-                      <span className="text-income block">
-                        +{formatCurrency(d.income, currency)}
-                      </span>
-                    )}
-                    {d.expense > 0 && (
-                      <span className="text-expense block">
-                        −{formatCurrency(d.expense, currency)}
-                      </span>
-                    )}
-                    {d.income === 0 && d.expense === 0 && (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                  <div
+                    data-testid={`tooltip-chart-day-${d.day}`}
+                    className={`pointer-events-none absolute top-1 space-y-1 z-10 w-max rounded border border-border bg-popover p-2 text-center text-xs text-popover-foreground shadow-xl transition-opacity ${
+                      isSelected
+                        ? "opacity-100"
+                        : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+                    } ${tooltipAlignment}`}
+                  >
+                    <span className="block font-bold">
+                      {format(parseISO(d.date), "MMMM d, yyyy")}
+                    </span>
+                    <span className="block text-income">
+                      Income: {formatCurrency(d.income, currency)}
+                    </span>
+                    <span className="block text-expense">
+                      Expense: {formatCurrency(d.expense, currency)}
+                    </span>
                   </div>
 
                   <div className="w-full flex gap-[1px] h-full items-end justify-center">
@@ -200,7 +248,7 @@ export default function Analytics() {
                   <div className="h-4 mt-1 text-[9px] sm:text-[10px] text-muted-foreground hidden sm:block">
                     {d.day % 5 === 0 || d.day === 1 ? d.day : ""}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -249,10 +297,21 @@ export default function Analytics() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               {earningStats.map((ear) => (
-                <div
+                <button
+                  type="button"
                   key={ear.id}
                   data-testid={`card-earning-category-${ear.id}`}
-                  className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow"
+                  aria-haspopup="dialog"
+                  aria-label={`View ${ear.name} income transactions for ${format(monthDate, "MMMM yyyy")}`}
+                  onClick={() =>
+                    setSelectedBreakdown({
+                      categoryId: ear.id,
+                      categoryName: ear.name,
+                      icon: ear.icon,
+                      type: "income",
+                    })
+                  }
+                  className="w-full bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-sm text-left cursor-pointer hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-all"
                 >
                   <div className="flex justify-between items-center mb-2 sm:mb-3 gap-2">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -278,7 +337,11 @@ export default function Analytics() {
                       style={{ width: `${ear.percentage}%` }}
                     />
                   </div>
-                </div>
+                  <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">
+                    View transactions
+                    <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
+                  </span>
+                </button>
               ))}
             </div>
           )}
@@ -317,9 +380,21 @@ export default function Analytics() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               {spedndingsStats.map((spen) => (
-                <div
+                <button
+                  type="button"
                   key={spen.id}
-                  className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow"
+                  data-testid={`card-spending-category-${spen.id}`}
+                  aria-haspopup="dialog"
+                  aria-label={`View ${spen.name} expense transactions for ${format(monthDate, "MMMM yyyy")}`}
+                  onClick={() =>
+                    setSelectedBreakdown({
+                      categoryId: spen.id,
+                      categoryName: spen.name,
+                      icon: spen.icon,
+                      type: "expense",
+                    })
+                  }
+                  className="w-full bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-sm text-left cursor-pointer hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-all"
                 >
                   <div className="flex justify-between items-center mb-2 sm:mb-3 gap-2">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -345,12 +420,97 @@ export default function Analytics() {
                       style={{ width: `${spen.percentage}%` }}
                     ></div>
                   </div>
-                </div>
+                  <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">
+                    View transactions
+                    <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
+                  </span>
+                </button>
               ))}
             </div>
           )}
         </div>
       </div>
+
+      <Dialog
+        open={selectedBreakdown !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedBreakdown(null);
+        }}
+      >
+        {selectedBreakdown && (
+          <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-xl">
+            <DialogHeader className="pr-8">
+              <DialogTitle className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-2xl">
+                  {selectedBreakdown.icon}
+                </span>
+                <span>{selectedBreakdown.categoryName}</span>
+              </DialogTitle>
+              <DialogDescription>
+                {selectedBreakdown.type === "income"
+                  ? "Income transactions"
+                  : "Expense transactions"}{" "}
+                for {format(monthDate, "MMMM yyyy")}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+              <span className="text-sm text-muted-foreground">
+                {selectedTransactions.length}{" "}
+                {selectedTransactions.length === 1
+                  ? "transaction"
+                  : "transactions"}
+              </span>
+              <span
+                className={`shrink-0 font-bold ${
+                  selectedBreakdown.type === "income"
+                    ? "text-income"
+                    : "text-expense"
+                }`}
+              >
+                {selectedBreakdown.type === "income" ? "+" : "−"}
+                {formatCurrency(selectedTotal, currency)}
+              </span>
+            </div>
+
+            {selectedTransactions.length > 0 ? (
+              <div className="max-h-[55vh] divide-y divide-border/60 overflow-y-auto rounded-xl border border-border">
+                {selectedTransactions.map((transaction) => (
+                  <div
+                    key={transaction.id}
+                    className="flex items-center justify-between gap-4 px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">
+                        {format(parseISO(transaction.date), "MMMM d, yyyy")}
+                      </p>
+                      {transaction.note && (
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                          {transaction.note}
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className={`shrink-0 text-sm font-semibold ${
+                        selectedBreakdown.type === "income"
+                          ? "text-income"
+                          : "text-expense"
+                      }`}
+                    >
+                      {selectedBreakdown.type === "income" ? "+" : "−"}
+                      {formatCurrency(transaction.amount, currency)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                No matching transactions for this month.
+              </p>
+            )}
+          </DialogContent>
+        )}
+      </Dialog>
     </Layout>
   );
 }
