@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { format, parseISO } from "date-fns";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { createMonthKey } from "@/lib/month-comparison";
 
 interface MonthPickerProps {
   value: string;
@@ -115,7 +116,8 @@ export function MonthPicker({ value, onChange, ariaLabel }: MonthPickerProps) {
 
   const selectMonth = (monthIndex: number) => {
     if (!isYearValid) return;
-    const monthKey = `${String(year).padStart(4, "0")}-${String(monthIndex + 1).padStart(2, "0")}`;
+    const monthKey = createMonthKey(year, monthIndex);
+    if (!monthKey) return;
     onChange(monthKey);
     setOpen(false);
     triggerRef.current?.focus();
