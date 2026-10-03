@@ -239,7 +239,7 @@ export function CategoryManager() {
 
           <fieldset className="mt-4">
             <legend className="mb-2 text-sm font-medium">Choose an icon</legend>
-            <div className="grid grid-cols-8 gap-1.5 sm:grid-cols-11">
+            <div className="grid grid-cols-7 gap-1.5 sm:grid-cols-11">
               {ICON_CHOICES.map((choice, index) => (
                 <button
                   key={`${choice}-${index}`}

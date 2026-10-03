@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useMemo } from '
 import { useAuth } from './auth-context';
 import { usePinLock } from './pin-lock-context';
 import { apiFetch } from '@/lib/api';
+import { toast } from 'sonner';
 import type {
   Category as ApiCategory,
   CategoryInput,
@@ -54,7 +55,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
-
   useEffect(() => {
     let active = true;
     if (!user || !pinReady || isLocked) {
@@ -127,8 +127,43 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteTransaction = async (id: string) => {
-    await apiFetch(`/transactions/${id}`, { method: 'DELETE' });
-    setTransactions(prev => prev.filter(t => t.id !== id));
+    const transaction = transactions.find((item) => item.id === id);
+    if (!transaction) return;
+
+    try {
+      await apiFetch(`/transactions/${id}`, { method: 'DELETE' });
+      setTransactions((prev) => prev.filter((item) => item.id !== id));
+
+      let undoRequested = false;
+      toast('Deleted', {
+        duration: 7_000,
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            if (undoRequested) return;
+            undoRequested = true;
+            void addTransaction({
+              type: transaction.type,
+              amount: transaction.amount,
+              category: transaction.category,
+              date: transaction.date,
+              note: transaction.note,
+            })
+              .then(() => toast.success('Restored'))
+              .catch(() => {
+                undoRequested = false;
+                toast.error('Could not restore transaction', {
+                  description: 'Please refresh and try again.',
+                });
+              });
+          },
+        },
+      });
+    } catch {
+      toast.error('Could not delete transaction', {
+        description: 'Please try again.',
+      });
+    }
   };
 
   const addBudget = async (budget: Omit<Budget, 'id'>) => {

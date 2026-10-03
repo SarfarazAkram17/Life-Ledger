@@ -1,15 +1,11 @@
 import React from "react";
-import {
-  Switch,
-  Route,
-  Router as WouterRouter,
-  Redirect,
-} from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { AuthProvider, useAuth } from "./contexts/auth-context";
 import { ThemeProvider } from "./contexts/theme-context";
 import { DataProvider } from "./contexts/data-context";
 import { PinLockProvider, usePinLock } from "./contexts/pin-lock-context";
 import { PinUnlockScreen } from "./components/pin-unlock-screen";
+import { Toaster } from "./components/ui/sonner";
 
 import Landing from "./pages/landing";
 import Login from "./pages/login";
@@ -97,9 +93,7 @@ function Routes() {
         path="/settings"
         component={() => <ProtectedRoute component={Settings} />}
       />
-      <Route
-        component={NotFound}
-      />
+      <Route component={NotFound} />
     </Switch>
   );
 }
@@ -110,6 +104,7 @@ function App() {
       <PinLockProvider>
         <ThemeProvider>
           <DataProvider>
+            <Toaster />
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
               <Routes />
             </WouterRouter>
