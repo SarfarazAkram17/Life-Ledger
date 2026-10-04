@@ -41,6 +41,10 @@ const ICON_CHOICES = [
 export function CategoryManager() {
   const { categories, loading, addCategory, updateCategory } = useData();
   const [type, setType] = useState<TransactionType>("expense");
+  const [showAll, setShowAll] = useState<Record<TransactionType, boolean>>({
+    expense: false,
+    income: false,
+  });
   const [showArchived, setShowArchived] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -60,6 +64,9 @@ export function CategoryManager() {
   const archivedCategories = typeCategories.filter(
     (category) => category.isArchived,
   );
+  const visibleCategories = showAll[type]
+    ? activeCategories
+    : activeCategories.slice(0, 5);
 
   const resetForm = () => {
     setFormOpen(false);
@@ -304,7 +311,7 @@ export function CategoryManager() {
             {type === "income" ? "income sources" : "expense categories"} yet.
           </p>
         ) : (
-          activeCategories.map((category) => (
+          visibleCategories.map((category) => (
             <div
               key={category.id}
               className="flex items-center gap-3 py-3 first:pt-1"
@@ -339,6 +346,20 @@ export function CategoryManager() {
           ))
         )}
       </div>
+
+      {activeCategories.length > 5 && (
+        <button
+          type="button"
+          aria-expanded={showAll[type]}
+          onClick={() =>
+            setShowAll((current) => ({ ...current, [type]: !current[type] }))
+          }
+          className="mt-3 flex w-full items-center justify-center rounded-lg border border-border px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/5"
+          data-testid={`button-${type}-categories-toggle`}
+        >
+          {showAll[type] ? "Show less" : "Show all"}
+        </button>
+      )}
 
       {archivedCategories.length > 0 && (
         <div className="mt-2 border-t border-border pt-3">

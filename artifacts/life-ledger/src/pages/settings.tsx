@@ -6,9 +6,11 @@ import { useTheme } from "@/contexts/theme-context";
 import { useData } from "@/contexts/data-context";
 import { CURRENCIES } from "@/lib/constants";
 import { CategoryManager } from "@/components/category-manager";
+import { CsvImportModal } from "@/components/csv-import-modal";
 import {
   Camera,
   Download,
+  Upload,
   LogOut,
   Trash2,
   FileText,
@@ -31,7 +33,14 @@ export default function Settings() {
   const { user, logout, updateDisplayName } = useAuth();
   const { theme, setTheme, currency, setCurrency, avatar, setAvatar } =
     useTheme();
-  const { transactions, budgets, categories, clearAllData } = useData();
+  const {
+    transactions,
+    budgets,
+    categories,
+    addTransaction,
+    addBudget,
+    clearAllData,
+  } = useData();
   const {
     hasPin,
     pinLength: savedPinLength,
@@ -43,6 +52,7 @@ export default function Settings() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showCsvImport, setShowCsvImport] = useState(false);
   const [csvExportNotice, setCsvExportNotice] = useState("");
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [currencySearch, setCurrencySearch] = useState("");
@@ -618,7 +628,15 @@ export default function Settings() {
             </h3>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <button
+                onClick={() => setShowCsvImport(true)}
+                data-testid="button-import-csv"
+                className="flex items-center justify-center gap-2 flex-1 bg-primary/10 text-primary hover:bg-primary/20 py-2.5 sm:py-3 rounded-xl font-medium transition-colors border border-primary/30 cursor-pointer text-sm sm:text-base"
+              >
+                <Upload className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Import CSV
+              </button>
+              <button
                 onClick={handleExportCSV}
+                data-testid="button-export-csv"
                 className="flex items-center justify-center gap-2 flex-1 bg-secondary text-secondary-foreground hover:bg-secondary/80 py-2.5 sm:py-3 rounded-xl font-medium transition-colors border border-border cursor-pointer text-sm sm:text-base"
               >
                 <Download className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Export
@@ -790,6 +808,16 @@ export default function Settings() {
           setConfirmLogout(false);
         }}
         onCancel={() => setConfirmLogout(false)}
+      />
+
+      <CsvImportModal
+        isOpen={showCsvImport}
+        onClose={() => setShowCsvImport(false)}
+        transactions={transactions}
+        budgets={budgets}
+        categories={categories}
+        onImport={addTransaction}
+        onImportBudget={addBudget}
       />
     </Layout>
   );

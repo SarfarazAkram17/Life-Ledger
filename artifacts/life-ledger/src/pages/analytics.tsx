@@ -19,12 +19,129 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { Category, Transaction } from "@/contexts/data-context";
+
 type SelectedBreakdown = {
   categoryId: string;
   categoryName: string;
   icon: string;
   type: "income" | "expense";
 };
+
+function buildAnnualTrends(
+  transactions: Transaction[],
+  categories: Category[],
+  year: number,
+) {
+  const months = Array.from({ length: 12 }, (_, monthIndex) => {
+    const start = new Date(year, monthIndex, 1);
+    return {
+      key: format(start, "yyyy-MM"),
+      label: format(start, "MMM"),
+      start,
+    };
+  });
+  const monthKeys = new Set(months.map((month) => month.key));
+  const incomeSourceAmounts: Record<string, Record<string, number>> = {};
+  const expenseCategoryAmounts: Record<string, Record<string, number>> = {};
+
+  for (const transaction of transactions) {
+    const monthKey = transaction.date.slice(0, 7);
+    if (!monthKeys.has(monthKey)) continue;
+
+    const amounts =
+      transaction.type === "income"
+        ? incomeSourceAmounts
+        : expenseCategoryAmounts;
+    amounts[transaction.category] ??= {};
+    amounts[transaction.category][monthKey] =
+      (amounts[transaction.category][monthKey] ?? 0) + transaction.amount;
+  }
+
+  const summarize = (amounts: Record<string, Record<string, number>>) =>
+    Object.entries(amounts)
+      .map(([id, monthlyAmounts]) => {
+        const category = categories.find((item) => item.id === id);
+        return {
+          id,
+          name: category?.name ?? id,
+          icon: category?.icon ?? "📦",
+          total: Object.values(monthlyAmounts).reduce(
+            (sum, amount) => sum + amount,
+            0,
+          ),
+        };
+      })
+      .sort((a, b) => b.total - a.total);
+
+  return {
+    months,
+    incomeSources: summarize(incomeSourceAmounts),
+    expenseCategories: summarize(expenseCategoryAmounts),
+    incomeSourceAmounts,
+    expenseCategoryAmounts,
+  };
+}
+
+function TrendYearFilter({
+  year,
+  label,
+  testIdPrefix,
+  onChange,
+}: {
+  year: number;
+  label: string;
+  testIdPrefix: string;
+  onChange: (year: number) => void;
+}) {
+  const currentYear = new Date().getFullYear();
+
+  return (
+    <div
+      role="group"
+      aria-label={`${label} trend year`}
+      data-testid={`group-${testIdPrefix}-trend-year`}
+      className="flex w-full shrink-0 items-center justify-between gap-2 rounded-xl border border-border bg-background px-2 py-1.5 sm:w-auto"
+    >
+      <button
+        type="button"
+        data-testid={`button-previous-${testIdPrefix}-trend-year`}
+        aria-label={`Show ${year - 1} ${label.toLowerCase()} trends`}
+        onClick={() => onChange(year - 1)}
+        className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+      </button>
+      <span
+        data-testid={`label-${testIdPrefix}-trend-year`}
+        aria-live="polite"
+        className="min-w-14 text-center text-sm font-semibold tabular-nums"
+      >
+        {year}
+      </span>
+      <button
+        type="button"
+        data-testid={`button-next-${testIdPrefix}-trend-year`}
+        aria-label={`Show ${year + 1} ${label.toLowerCase()} trends`}
+        disabled={year >= currentYear}
+        onClick={() => onChange(year + 1)}
+        className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <ChevronRight aria-hidden="true" className="h-4 w-4" />
+      </button>
+      {year !== currentYear && (
+        <button
+          type="button"
+          data-testid={`button-current-${testIdPrefix}-trend-year`}
+          onClick={() => onChange(currentYear)}
+          className="rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          This year
+        </button>
+      )}
+    </div>
+  );
+}
 
 const SpendingTrendChart = React.lazy(
   () => import("@/components/spending-trend-chart"),
@@ -42,7 +159,10 @@ export default function Analytics() {
   const [selectedTrendCategoryId, setSelectedTrendCategoryId] = useState("");
   const [selectedIncomeTrendSourceId, setSelectedIncomeTrendSourceId] =
     useState("");
-  const [selectedTrendYear, setSelectedTrendYear] = useState(
+  const [selectedSpendingTrendYear, setSelectedSpendingTrendYear] = useState(
+    new Date().getFullYear(),
+  );
+  const [selectedIncomeTrendYear, setSelectedIncomeTrendYear] = useState(
     new Date().getFullYear(),
   );
   const [activeMonthStr, setActiveMonthStr] = useState(
@@ -132,86 +252,45 @@ export default function Analytics() {
     return { data, maxVal: maxVal > 0 ? maxVal : 100 };
   }, [transactions, activeMonthStr]);
 
-  const annualTrends = useMemo(() => {
-    const months = Array.from({ length: 12 }, (_, monthIndex) => {
-      const start = new Date(selectedTrendYear, monthIndex, 1);
-      return {
-        key: format(start, "yyyy-MM"),
-        label: format(start, "MMM"),
-        start,
-      };
-    });
-    const monthKeys = new Set(months.map((month) => month.key));
-    const incomeSourceAmounts: Record<string, Record<string, number>> = {};
-    const expenseCategoryAmounts: Record<string, Record<string, number>> = {};
+  const incomeAnnualTrends = useMemo(
+    () => buildAnnualTrends(transactions, categories, selectedIncomeTrendYear),
+    [transactions, categories, selectedIncomeTrendYear],
+  );
+  const spendingAnnualTrends = useMemo(
+    () =>
+      buildAnnualTrends(transactions, categories, selectedSpendingTrendYear),
+    [transactions, categories, selectedSpendingTrendYear],
+  );
 
-    for (const transaction of transactions) {
-      const monthKey = transaction.date.slice(0, 7);
-      if (!monthKeys.has(monthKey)) continue;
-
-      const amounts =
-        transaction.type === "income"
-          ? incomeSourceAmounts
-          : expenseCategoryAmounts;
-      amounts[transaction.category] ??= {};
-      amounts[transaction.category][monthKey] =
-        (amounts[transaction.category][monthKey] ?? 0) + transaction.amount;
-    }
-
-    const summarize = (amounts: Record<string, Record<string, number>>) =>
-      Object.entries(amounts)
-        .map(([id, monthlyAmounts]) => {
-          const category = categories.find((item) => item.id === id);
-          return {
-            id,
-            name: category?.name ?? id,
-            icon: category?.icon ?? "📦",
-            total: Object.values(monthlyAmounts).reduce(
-              (sum, amount) => sum + amount,
-              0,
-            ),
-          };
-        })
-        .sort((a, b) => b.total - a.total);
-
-    return {
-      months,
-      incomeSources: summarize(incomeSourceAmounts),
-      expenseCategories: summarize(expenseCategoryAmounts),
-      incomeSourceAmounts,
-      expenseCategoryAmounts,
-    };
-  }, [transactions, categories, selectedTrendYear]);
-
-  const effectiveTrendCategoryId = annualTrends.expenseCategories.some(
+  const effectiveTrendCategoryId = spendingAnnualTrends.expenseCategories.some(
     (category) => category.id === selectedTrendCategoryId,
   )
     ? selectedTrendCategoryId
-    : (annualTrends.expenseCategories[0]?.id ?? "");
-  const selectedTrendCategory = annualTrends.expenseCategories.find(
+    : (spendingAnnualTrends.expenseCategories[0]?.id ?? "");
+  const selectedTrendCategory = spendingAnnualTrends.expenseCategories.find(
     (category) => category.id === effectiveTrendCategoryId,
   );
-  const effectiveIncomeTrendSourceId = annualTrends.incomeSources.some(
+  const effectiveIncomeTrendSourceId = incomeAnnualTrends.incomeSources.some(
     (source) => source.id === selectedIncomeTrendSourceId,
   )
     ? selectedIncomeTrendSourceId
-    : (annualTrends.incomeSources[0]?.id ?? "");
-  const selectedIncomeTrendSource = annualTrends.incomeSources.find(
+    : (incomeAnnualTrends.incomeSources[0]?.id ?? "");
+  const selectedIncomeTrendSource = incomeAnnualTrends.incomeSources.find(
     (source) => source.id === effectiveIncomeTrendSourceId,
   );
-  const spendingTrendData = annualTrends.months.map((month) => ({
+  const spendingTrendData = spendingAnnualTrends.months.map((month) => ({
     monthStart: month.start.getTime(),
     monthLabel: month.label,
     amount:
-      annualTrends.expenseCategoryAmounts[effectiveTrendCategoryId]?.[
+      spendingAnnualTrends.expenseCategoryAmounts[effectiveTrendCategoryId]?.[
         month.key
       ] ?? 0,
   }));
-  const incomeTrendData = annualTrends.months.map((month) => ({
+  const incomeTrendData = incomeAnnualTrends.months.map((month) => ({
     monthStart: month.start.getTime(),
     monthLabel: month.label,
     amount:
-      annualTrends.incomeSourceAmounts[effectiveIncomeTrendSourceId]?.[
+      incomeAnnualTrends.incomeSourceAmounts[effectiveIncomeTrendSourceId]?.[
         month.key
       ] ?? 0,
   }));
@@ -538,49 +617,8 @@ export default function Analytics() {
             <div>
               <h2 className="text-lg font-bold sm:text-xl">Yearly Trends</h2>
               <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
-                Monthly earning and spending from January through December
+                Choose a year separately for each trend
               </p>
-            </div>
-            <div
-              aria-label="Choose trend year"
-              className="flex w-full items-center justify-between gap-3 self-start rounded-xl border border-border bg-card px-3 py-2 sm:w-auto sm:self-auto"
-            >
-              <button
-                type="button"
-                data-testid="button-previous-trend-year"
-                aria-label={`Show ${selectedTrendYear - 1} trends`}
-                onClick={() => setSelectedTrendYear((year) => year - 1)}
-                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <ChevronLeft aria-hidden="true" className="h-5 w-5" />
-              </button>
-              <span
-                data-testid="label-trend-year"
-                aria-live="polite"
-                className="min-w-16 text-center text-base font-semibold tabular-nums"
-              >
-                {selectedTrendYear}
-              </span>
-              <button
-                type="button"
-                data-testid="button-next-trend-year"
-                aria-label={`Show ${selectedTrendYear + 1} trends`}
-                disabled={selectedTrendYear >= new Date().getFullYear()}
-                onClick={() => setSelectedTrendYear((year) => year + 1)}
-                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ChevronRight aria-hidden="true" className="h-5 w-5" />
-              </button>
-              {selectedTrendYear !== new Date().getFullYear() && (
-                <button
-                  type="button"
-                  data-testid="button-current-trend-year"
-                  onClick={() => setSelectedTrendYear(new Date().getFullYear())}
-                  className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  This year
-                </button>
-              )}
             </div>
           </div>
 
@@ -589,60 +627,69 @@ export default function Analytics() {
               data-testid="section-income-trends"
               className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6"
             >
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h3 className="text-base font-bold sm:text-lg">
                     Earning by Source
                   </h3>
                   <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
-                    Monthly Earning from each source in {selectedTrendYear}
+                    Monthly earning from each source in{" "}
+                    {selectedIncomeTrendYear}
                   </p>
                 </div>
-                {annualTrends.incomeSources.length > 0 && (
-                  <div className="w-full shrink-0 sm:w-52">
-                    <label htmlFor="income-trend-source" className="sr-only">
-                      Income source
-                    </label>
-                    <Select
-                      value={effectiveIncomeTrendSourceId}
-                      onValueChange={setSelectedIncomeTrendSourceId}
-                    >
-                      <SelectTrigger
-                        id="income-trend-source"
-                        data-testid="select-income-trend-source"
-                        aria-label="Choose an income source"
-                        className="w-full"
+                <div className="flex w-full flex-col md:flex-row-reverse gap-2 sm:w-auto sm:items-end">
+                  <TrendYearFilter
+                    year={selectedIncomeTrendYear}
+                    onChange={setSelectedIncomeTrendYear}
+                    label="Earning"
+                    testIdPrefix="income"
+                  />
+                  {incomeAnnualTrends.incomeSources.length > 0 && (
+                    <div className="w-full shrink-0 sm:w-52">
+                      <label htmlFor="income-trend-source" className="sr-only">
+                        Income source
+                      </label>
+                      <Select
+                        value={effectiveIncomeTrendSourceId}
+                        onValueChange={setSelectedIncomeTrendSourceId}
                       >
-                        <SelectValue placeholder="Choose a source" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {annualTrends.incomeSources.map((source) => (
-                          <SelectItem
-                            key={source.id}
-                            value={source.id}
-                            data-testid={`option-income-trend-source-${source.id}`}
-                          >
-                            {source.icon} {source.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                        <SelectTrigger
+                          id="income-trend-source"
+                          data-testid="select-income-trend-source"
+                          aria-label="Choose an income source"
+                          className="w-full"
+                        >
+                          <SelectValue placeholder="Choose a source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {incomeAnnualTrends.incomeSources.map((source) => (
+                            <SelectItem
+                              key={source.id}
+                              value={source.id}
+                              data-testid={`option-income-trend-source-${source.id}`}
+                            >
+                              {source.icon} {source.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {annualTrends.incomeSources.length === 0 ? (
+              {incomeAnnualTrends.incomeSources.length === 0 ? (
                 <div
                   data-testid="empty-income-trend"
                   className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground"
                 >
-                  No income data for {selectedTrendYear}.
+                  No income data for {selectedIncomeTrendYear}.
                 </div>
               ) : (
                 <div
                   data-testid="chart-income-trend"
                   role="img"
-                  aria-label={`Monthly income trend for ${selectedIncomeTrendSource?.name ?? "selected source"} in ${selectedTrendYear}`}
+                  aria-label={`Monthly income trend for ${selectedIncomeTrendSource?.name ?? "selected source"} in ${selectedIncomeTrendYear}`}
                   className="h-56 w-full sm:h-64"
                 >
                   <React.Suspense
@@ -666,63 +713,73 @@ export default function Analytics() {
               data-testid="section-spending-trends"
               className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6"
             >
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h3 className="text-base font-bold sm:text-lg">
                     Spending by Category
                   </h3>
                   <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
-                    Monthly spending by category in {selectedTrendYear}
+                    Monthly spending by category in {selectedSpendingTrendYear}
                   </p>
                 </div>
-                {annualTrends.expenseCategories.length > 0 && (
-                  <div className="w-full shrink-0 sm:w-52">
-                    <label
-                      htmlFor="spending-trend-category"
-                      className="sr-only"
-                    >
-                      Spending category
-                    </label>
-                    <Select
-                      value={effectiveTrendCategoryId}
-                      onValueChange={setSelectedTrendCategoryId}
-                    >
-                      <SelectTrigger
-                        id="spending-trend-category"
-                        data-testid="select-spending-trend-category"
-                        aria-label="Choose a spending category"
-                        className="w-full"
+                <div className="flex w-full flex-col md:flex-row-reverse gap-2 sm:w-auto sm:items-end">
+                  <TrendYearFilter
+                    year={selectedSpendingTrendYear}
+                    onChange={setSelectedSpendingTrendYear}
+                    label="Spending"
+                    testIdPrefix="spending"
+                  />
+                  {spendingAnnualTrends.expenseCategories.length > 0 && (
+                    <div className="w-full shrink-0 sm:w-52">
+                      <label
+                        htmlFor="spending-trend-category"
+                        className="sr-only"
                       >
-                        <SelectValue placeholder="Choose a category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {annualTrends.expenseCategories.map((category) => (
-                          <SelectItem
-                            key={category.id}
-                            value={category.id}
-                            data-testid={`option-spending-trend-category-${category.id}`}
-                          >
-                            {category.icon} {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                        Spending category
+                      </label>
+                      <Select
+                        value={effectiveTrendCategoryId}
+                        onValueChange={setSelectedTrendCategoryId}
+                      >
+                        <SelectTrigger
+                          id="spending-trend-category"
+                          data-testid="select-spending-trend-category"
+                          aria-label="Choose a spending category"
+                          className="w-full"
+                        >
+                          <SelectValue placeholder="Choose a category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {spendingAnnualTrends.expenseCategories.map(
+                            (category) => (
+                              <SelectItem
+                                key={category.id}
+                                value={category.id}
+                                data-testid={`option-spending-trend-category-${category.id}`}
+                              >
+                                {category.icon} {category.name}
+                              </SelectItem>
+                            ),
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {annualTrends.expenseCategories.length === 0 ? (
+              {spendingAnnualTrends.expenseCategories.length === 0 ? (
                 <div
                   data-testid="empty-spending-trend"
                   className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground"
                 >
-                  No expense data for {selectedTrendYear}.
+                  No expense data for {selectedSpendingTrendYear}.
                 </div>
               ) : (
                 <div
                   data-testid="chart-spending-trend"
                   role="img"
-                  aria-label={`Monthly spending trend for ${selectedTrendCategory?.name ?? "selected category"} in ${selectedTrendYear}`}
+                  aria-label={`Monthly spending trend for ${selectedTrendCategory?.name ?? "selected category"} in ${selectedSpendingTrendYear}`}
                   className="h-56 w-full sm:h-64"
                 >
                   <React.Suspense
