@@ -684,7 +684,7 @@ export default function Transactions() {
                         {isIncome ? "+" : "−"}
                         {formatCurrency(tx.amount, currency)}
                       </div>
-                      <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-all focus-within:opacity-100 group-hover:opacity-100 sm:gap-1 sm:opacity-0">
+                      <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
                         <button
                           type="button"
                           onClick={() => {
