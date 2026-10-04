@@ -54,6 +54,7 @@ export default function Settings() {
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [csvExportNotice, setCsvExportNotice] = useState("");
+  const csvExportNoticeTimeoutRef = useRef<number | null>(null);
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [currencySearch, setCurrencySearch] = useState("");
 
@@ -81,6 +82,15 @@ export default function Settings() {
   useEffect(() => {
     if (savedPinLength) setPinDigits(savedPinLength);
   }, [savedPinLength]);
+
+  useEffect(
+    () => () => {
+      if (csvExportNoticeTimeoutRef.current !== null) {
+        window.clearTimeout(csvExportNoticeTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   const resetPinForm = () => {
     setPinMode(null);
@@ -245,7 +255,14 @@ export default function Settings() {
     a.download = filename;
     a.click();
     window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    if (csvExportNoticeTimeoutRef.current !== null) {
+      window.clearTimeout(csvExportNoticeTimeoutRef.current);
+    }
     setCsvExportNotice(`CSV download started: ${filename}`);
+    csvExportNoticeTimeoutRef.current = window.setTimeout(() => {
+      setCsvExportNotice("");
+      csvExportNoticeTimeoutRef.current = null;
+    }, 2000);
   };
 
   const filteredCurrencies = CURRENCIES.filter(
