@@ -43,7 +43,7 @@ export function Layout({ children }: LayoutProps) {
               src={`${import.meta.env.BASE_URL}favicon.png`}
               alt="logo"
               aria-hidden="true"
-              className="h-10 w-10 shrink-0 rounded-lg object-contain"
+              className="h-11 w-11 shrink-0 rounded-lg object-contain"
             />
             LifeLedger
           </Link>

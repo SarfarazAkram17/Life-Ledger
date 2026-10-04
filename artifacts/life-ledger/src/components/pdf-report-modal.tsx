@@ -443,6 +443,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
       );
     } finally {
       setGenerating(false);
+      onClose();
     }
   };
 

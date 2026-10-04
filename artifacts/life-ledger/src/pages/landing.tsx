@@ -24,7 +24,7 @@ export default function Landing() {
             src={`${import.meta.env.BASE_URL}favicon.png`}
             alt=""
             aria-hidden="true"
-            className="h-10 w-10 shrink-0 rounded-lg object-contain sm:h-8 sm:w-8"
+            className="h-7 w-7 shrink-0 rounded-lg object-contain sm:h-11 sm:w-11"
           />
           LifeLedger
         </div>
