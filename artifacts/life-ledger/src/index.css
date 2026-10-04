@@ -1,8 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: 'Inter', sans-serif;
+  --font-sans: "Inter", sans-serif;
 
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -23,7 +23,7 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
-  
+
   --color-income: hsl(var(--income));
   --color-expense: hsl(var(--expense));
 }
@@ -32,25 +32,25 @@
   /* Default Theme (Emerald) - Always Dark Mode base */
   --background: 240 5% 4%;
   --foreground: 0 0% 98%;
-  
+
   --card: 240 5% 7%;
   --card-foreground: 0 0% 98%;
-  
+
   --popover: 240 5% 7%;
   --popover-foreground: 0 0% 98%;
-  
+
   --secondary: 240 5% 15%;
   --secondary-foreground: 0 0% 98%;
-  
+
   --muted: 240 5% 15%;
   --muted-foreground: 240 5% 65%;
-  
+
   --destructive: 355 100% 64%; /* #FF4757 */
   --destructive-foreground: 0 0% 98%;
-  
+
   --border: 240 5% 15%;
   --input: 240 5% 15%;
-  
+
   --income: 142 71% 45%; /* #22C55E */
   --expense: 355 100% 64%; /* #FF4757 */
 
@@ -82,13 +82,24 @@
   * {
     @apply border-border;
   }
+  html {
+    min-height: 100%;
+  }
   body {
     @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary-foreground;
+    min-width: 320px;
+    min-height: 100dvh;
   }
-  button, a, select, [role="button"] {
+  #root {
+    min-height: 100dvh;
+  }
+  button,
+  a,
+  select,
+  [role="button"] {
     cursor: pointer;
   }
-  
+
   /* Custom scrollbar — follows active theme primary color */
   ::-webkit-scrollbar {
     width: 5px;
@@ -122,10 +133,14 @@
     box-shadow: none !important;
     border-color: #ddd !important;
   }
-  .text-primary, .text-income, .text-expense {
+  .text-primary,
+  .text-income,
+  .text-expense {
     color: black !important;
   }
-  .bg-primary, .bg-income, .bg-expense {
+  .bg-primary,
+  .bg-income,
+  .bg-expense {
     background-color: #eee !important;
     color: black !important;
   }

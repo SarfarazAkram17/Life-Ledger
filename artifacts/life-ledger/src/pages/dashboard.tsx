@@ -117,7 +117,7 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div className="space-y-5 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="min-w-0 space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500 sm:space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between min-w-0">
           <div className="min-w-0">
@@ -147,7 +147,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex items-stretch gap-2 sm:gap-4">
+            <div className="flex flex-col gap-2 min-[400px]:flex-row sm:gap-4">
               <div className="bg-background/50 backdrop-blur-md rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-border flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground mb-1">
                   <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-income shrink-0" />

@@ -53,7 +53,7 @@ export function PinDigitBoxes({
     <div
       role="group"
       aria-label={label}
-      className="flex flex-wrap gap-1 sm:gap-3"
+      className="flex flex-nowrap items-center gap-1 sm:gap-3"
     >
       {Array.from({ length }, (_, index) => (
         <input
@@ -87,7 +87,7 @@ export function PinDigitBoxes({
           }}
           aria-label={`${label}, digit ${index + 1} of ${length}`}
           data-testid={index === 0 ? testId : `${testId}-${index + 1}`}
-          className="w-11 h-12 sm:w-12 sm:h-14 rounded-xl border border-border bg-background text-center text-xl font-semibold tracking-normal focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+          className="h-10 w-10 shrink-0 rounded-xl border border-border bg-background text-center text-xl font-semibold tracking-normal focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60 sm:h-14 sm:w-12"
         />
       ))}
     </div>

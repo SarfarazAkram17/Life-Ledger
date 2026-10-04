@@ -46,8 +46,14 @@ function getBudgetStatus(percent: number) {
 }
 
 export default function Budgets() {
-  const { budgets, transactions, categories, addBudget, updateBudget, deleteBudget } =
-    useData();
+  const {
+    budgets,
+    transactions,
+    categories,
+    addBudget,
+    updateBudget,
+    deleteBudget,
+  } = useData();
   const { currency } = useTheme();
 
   const [activeMonthStr, setActiveMonthStr] = useState(
@@ -176,7 +182,7 @@ export default function Budgets() {
 
   return (
     <Layout>
-      <div className="space-y-5 sm:space-y-8 animate-in fade-in duration-500">
+      <div className="min-w-0 space-y-5 animate-in fade-in duration-500 sm:space-y-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Budgets</h1>
@@ -204,7 +210,7 @@ export default function Budgets() {
               >
                 ‹
               </button>
-              <span className="font-semibold w-29 sm:w-33 text-center text-sm sm:text-base">
+              <span className="w-[8.5rem] whitespace-nowrap text-center text-xs font-semibold sm:w-[9rem] sm:text-base">
                 {format(monthDate, "MMMM yyyy")}
               </span>
               <button
@@ -247,7 +253,7 @@ export default function Budgets() {
 
         {/* Total Overview Card */}
         <div className="bg-card rounded-2xl sm:rounded-3xl border border-border p-5 sm:p-8 shadow-sm">
-          <div className="flex items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3 flex-wrap">
+          <div className="mb-4 flex min-w-0 flex-col gap-2 sm:mb-6 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center shrink-0">
                 <Target className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -261,7 +267,7 @@ export default function Budgets() {
                 </p>
               </div>
             </div>
-            <div className="text-right">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-left min-[420px]:justify-end min-[420px]:text-right">
               <span className="text-xl sm:text-2xl font-bold text-foreground break-all">
                 {formatCurrency(totalSpent, currency)}
               </span>
@@ -490,13 +496,13 @@ export default function Budgets() {
                         className="w-full appearance-none bg-background border border-border rounded-xl py-3 pl-4 pr-10 outline-none focus:border-primary cursor-pointer text-sm sm:text-base text-foreground"
                       >
                         <option value="">Select a category...</option>
-                        {categories.filter(
-                          (c) => c.type === "expense" && !c.isArchived,
-                        ).map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.icon} {c.name}
-                          </option>
-                        ))}
+                        {categories
+                          .filter((c) => c.type === "expense" && !c.isArchived)
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.icon} {c.name}
+                            </option>
+                          ))}
                       </select>
                       <ChevronDown
                         aria-hidden="true"

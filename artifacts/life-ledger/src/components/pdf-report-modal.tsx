@@ -474,10 +474,10 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 16 }}
             transition={{ type: "spring", damping: 26, stiffness: 220 }}
-            className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+            className="fixed inset-0 z-[60] flex items-center justify-center p-2 min-[420px]:p-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-[420px] flex flex-col overflow-hidden max-h-[92vh]">
+            <div className="flex max-h-[92dvh] w-full max-w-[420px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
               {/* Header */}
               <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border shrink-0">
                 <div>

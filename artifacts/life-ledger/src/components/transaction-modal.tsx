@@ -102,7 +102,7 @@ export function TransactionModal({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed inset-x-0 bottom-0 lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 z-50 bg-card lg:rounded-2xl rounded-t-3xl border border-border lg:max-w-md w-full max-h-[90vh] overflow-y-auto lg:shadow-2xl flex flex-col"
+            className="fixed inset-x-0 bottom-0 z-50 flex max-h-[90dvh] w-full flex-col overflow-y-auto overscroll-contain rounded-t-3xl border border-border bg-card pb-[env(safe-area-inset-bottom)] lg:inset-auto lg:left-1/2 lg:top-1/2 lg:max-h-[90dvh] lg:max-w-md lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl lg:pb-0 lg:shadow-2xl"
           >
             {/* Header */}
             <div className="sticky top-0 bg-card/90 backdrop-blur-md z-10 border-b border-border/50 p-4 flex items-center justify-between">
@@ -121,7 +121,7 @@ export function TransactionModal({
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
               {/* Type Toggle */}
               <div className="flex p-1 bg-muted rounded-xl">
                 <button
@@ -160,7 +160,7 @@ export function TransactionModal({
                   Amount
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 w-16 flex items-center justify-center pointer-events-none border-r border-border/50">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex w-14 items-center justify-center border-r border-border/50">
                     <span className="text-xl font-bold text-primary">
                       {getCurrencySymbol(currency)}
                     </span>
@@ -173,7 +173,7 @@ export function TransactionModal({
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="0.00"
                     className={cn(
-                      "w-full bg-background border-2 border-border rounded-xl py-4 pl-20 pr-4 text-3xl font-bold outline-none transition-all",
+                      "w-full rounded-xl border-2 border-border bg-background py-4 pl-16 pr-4 text-2xl font-bold outline-none transition-all sm:text-3xl",
                       type === "expense"
                         ? "focus:border-expense focus:ring-4 focus:ring-expense/10"
                         : "focus:border-income focus:ring-4 focus:ring-income/10",
@@ -189,10 +189,11 @@ export function TransactionModal({
                 </label>
                 {isDuplicateMode && selectedCategory?.isArchived && (
                   <p className="text-xs text-muted-foreground">
-                    This category is archived. Choose an active category for the duplicate.
+                    This category is archived. Choose an active category for the
+                    duplicate.
                   </p>
                 )}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2 min-[400px]:grid-cols-3">
                   {filteredCategories.map((c) => (
                     <button
                       key={c.id}
@@ -214,7 +215,7 @@ export function TransactionModal({
               </div>
 
               {/* Date & Note */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">
                     Date

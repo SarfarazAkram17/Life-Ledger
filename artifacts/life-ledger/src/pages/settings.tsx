@@ -277,7 +277,7 @@ export default function Settings() {
 
   return (
     <Layout>
-      <div className="space-y-5 sm:space-y-8 max-w-full mx-auto animate-in fade-in duration-500 pb-10">
+      <div className="mx-auto min-w-0 max-w-full animate-in fade-in duration-500 space-y-5 pb-10 sm:space-y-8">
         <h1 className="text-2xl sm:text-3xl font-bold">Settings</h1>
 
         {/* Settings Header */}
@@ -719,7 +719,7 @@ export default function Settings() {
               className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="bg-card border border-border rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm flex flex-col overflow-hidden max-h-[80vh]">
+              <div className="flex max-h-[80dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-card pb-[env(safe-area-inset-bottom)] shadow-2xl sm:max-h-[80dvh] sm:max-w-sm sm:rounded-2xl sm:pb-0">
                 <div className="flex items-center justify-between px-4 py-4 border-b border-border shrink-0">
                   <h3 className="font-bold text-base">Select Currency</h3>
                   <button

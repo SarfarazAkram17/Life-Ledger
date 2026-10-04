@@ -315,7 +315,7 @@ export default function Analytics() {
 
   return (
     <Layout>
-      <div className="space-y-5 sm:space-y-8 animate-in fade-in duration-500">
+      <div className="min-w-0 space-y-5 animate-in fade-in duration-500 sm:space-y-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
           <h1 className="text-2xl sm:text-3xl font-bold">Analytics</h1>
 
@@ -337,7 +337,7 @@ export default function Analytics() {
               >
                 ‹
               </button>
-              <span className="font-semibold w-29 sm:w-33 text-center text-sm sm:text-base">
+              <span className="w-[8.5rem] whitespace-nowrap text-center text-xs font-semibold sm:w-[9rem] sm:text-base">
                 {format(monthDate, "MMMM yyyy")}
               </span>
               <button
@@ -447,7 +447,7 @@ export default function Analytics() {
 
         {/* Earnings by Source */}
         <div>
-          <div className="flex items-end justify-between gap-3 mb-3 sm:mb-4">
+          <div className="mb-3 flex flex-col gap-2 sm:mb-4 min-[420px]:flex-row min-[420px]:items-end min-[420px]:justify-between">
             <div>
               <h2 className="text-lg sm:text-xl font-bold">
                 Earnings by Source
@@ -457,7 +457,7 @@ export default function Analytics() {
               </p>
             </div>
             {earningStats.length > 0 && (
-              <p className="text-right shrink-0">
+              <p className="shrink-0 text-left min-[420px]:text-right">
                 <span className="block text-xs text-muted-foreground">
                   Total income
                 </span>
@@ -530,7 +530,7 @@ export default function Analytics() {
 
         {/* Spendings by Category */}
         <div>
-          <div className="flex items-end justify-between gap-3 mb-3 sm:mb-4">
+          <div className="mb-3 flex flex-col gap-2 sm:mb-4 min-[420px]:flex-row min-[420px]:items-end min-[420px]:justify-between">
             <div>
               <h2 className="text-lg sm:text-xl font-bold">
                 Spendings by Category
@@ -540,7 +540,7 @@ export default function Analytics() {
               </p>
             </div>
             {spedndingsStats.length > 0 && (
-              <p className="text-right shrink-0">
+              <p className="shrink-0 text-left min-[420px]:text-right">
                 <span className="block text-xs text-muted-foreground">
                   Total Expense
                 </span>
@@ -809,7 +809,7 @@ export default function Analytics() {
         }}
       >
         {selectedBreakdown && (
-          <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-xl">
+          <DialogContent className="max-h-[85dvh] overflow-hidden sm:max-w-xl">
             <DialogHeader className="pr-8">
               <DialogTitle className="flex items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-2xl">
@@ -845,7 +845,7 @@ export default function Analytics() {
             </div>
 
             {selectedTransactions.length > 0 ? (
-              <div className="max-h-[55vh] divide-y divide-border/60 overflow-y-auto rounded-xl border border-border">
+              <div className="max-h-[55dvh] divide-y divide-border/60 overflow-y-auto rounded-xl border border-border">
                 {selectedTransactions.map((transaction) => (
                   <div
                     key={transaction.id}

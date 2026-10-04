@@ -305,10 +305,10 @@ export default function Transactions() {
 
   return (
     <Layout>
-      <div className="space-y-5 animate-in fade-in duration-500">
+      <div className="min-w-0 space-y-5 animate-in fade-in duration-500">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h1 className="text-3xl font-bold">Transactions</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">Transactions</h1>
           <div className="flex items-center gap-3 flex-wrap">
             {(filterType !== "all" ||
               searchTerm ||
@@ -338,13 +338,13 @@ export default function Transactions() {
               className="w-full pl-9 pr-4 py-2.5 bg-card border border-border rounded-xl text-sm focus:outline-none focus:border-primary transition-all"
             />
           </div>
-          <div className="flex bg-card border border-border rounded-xl p-1">
+          <div className="flex w-full rounded-xl border border-border bg-card p-1 sm:w-auto">
             {(["all", "income", "expense"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setFilterType(t)}
                 className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer capitalize",
+                  "flex-1 rounded-lg px-2 py-2 text-sm font-medium capitalize transition-all sm:flex-none sm:px-4",
                   filterType === t
                     ? t === "income"
                       ? "bg-income/20 text-income"
@@ -361,7 +361,7 @@ export default function Transactions() {
           <button
             onClick={() => setShowAdvanced((v) => !v)}
             className={cn(
-              "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all cursor-pointer whitespace-nowrap",
+              "flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2.5 text-sm font-medium transition-all sm:w-auto",
               showAdvanced || activeAdvancedCount > 0
                 ? "bg-primary/10 text-primary border-primary/30"
                 : "bg-card border-border text-muted-foreground hover:text-foreground hover:border-primary/30",
@@ -392,61 +392,83 @@ export default function Transactions() {
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="bg-card border border-border rounded-2xl p-5 space-y-5 overflow-visible">
-                <div>
-                  <p className="text-sm font-semibold text-foreground mb-3">
-                    📅 Date Range
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className={labelCls}>From</label>
-                      <DatePicker
-                        value={dateFrom}
-                        onChange={setDateFrom}
-                        placeholder="From date"
-                      />
-                    </div>
-                    <div>
-                      <label className={labelCls}>To</label>
-                      <DatePicker
-                        value={dateTo}
-                        onChange={setDateTo}
-                        placeholder="To date"
-                        minDate={dateFrom || undefined}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="h-px bg-border/60" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="overflow-visible rounded-2xl border border-border bg-card p-4 sm:p-5">
+                <div className="space-y-4 sm:space-y-5">
                   <div>
-                    <p className="text-sm font-semibold text-foreground mb-3">
-                      📆 By Month
+                    <p className="mb-3 text-sm font-semibold text-foreground">
+                      📅 Date Range
                     </p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
                       <div>
-                        <label className={labelCls}>Month</label>
-                        <FilterSelect
-                          value={filterMonthNum}
-                          onChange={setFilterMonthNum}
-                          placeholder="Any"
-                          options={[
-                            { value: "", label: "Any month" },
-                            ...MONTHS.map((m, i) => ({
-                              value: String(i + 1).padStart(2, "0"),
-                              label: m,
-                            })),
-                          ]}
+                        <label className={labelCls}>From</label>
+                        <DatePicker
+                          value={dateFrom}
+                          onChange={setDateFrom}
+                          placeholder="From date"
                         />
                       </div>
                       <div>
+                        <label className={labelCls}>To</label>
+                        <DatePicker
+                          value={dateTo}
+                          onChange={setDateTo}
+                          placeholder="To date"
+                          minDate={dateFrom || undefined}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-px bg-border/60" />
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <div>
+                      <p className="mb-3 text-sm font-semibold text-foreground">
+                        📆 By Month
+                      </p>
+                      <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
+                        <div>
+                          <label className={labelCls}>Month</label>
+                          <FilterSelect
+                            value={filterMonthNum}
+                            onChange={setFilterMonthNum}
+                            placeholder="Any"
+                            options={[
+                              { value: "", label: "Any month" },
+                              ...MONTHS.map((m, i) => ({
+                                value: String(i + 1).padStart(2, "0"),
+                                label: m,
+                              })),
+                            ]}
+                          />
+                        </div>
+                        <div>
+                          <label className={labelCls}>Year</label>
+                          <FilterSelect
+                            value={filterMonthYear}
+                            onChange={setFilterMonthYear}
+                            placeholder="Any"
+                            options={[
+                              { value: "", label: "Any year" },
+                              ...availableYears.map((y) => ({
+                                value: y,
+                                label: y,
+                              })),
+                            ]}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="mb-3 text-sm font-semibold text-foreground">
+                        🗓️ By Year
+                      </p>
+                      <div>
                         <label className={labelCls}>Year</label>
                         <FilterSelect
-                          value={filterMonthYear}
-                          onChange={setFilterMonthYear}
-                          placeholder="Any"
+                          value={filterYear}
+                          onChange={setFilterYear}
+                          placeholder="All years"
                           options={[
-                            { value: "", label: "Any year" },
+                            { value: "", label: "All years" },
                             ...availableYears.map((y) => ({
                               value: y,
                               label: y,
@@ -456,73 +478,53 @@ export default function Transactions() {
                       </div>
                     </div>
                   </div>
+                  <div className="h-px bg-border/60" />
                   <div>
-                    <p className="text-sm font-semibold text-foreground mb-3">
-                      🗓️ By Year
+                    <p className="mb-3 text-sm font-semibold text-foreground">
+                      💰 Amount Range
                     </p>
-                    <div>
-                      <label className={labelCls}>Year</label>
-                      <FilterSelect
-                        value={filterYear}
-                        onChange={setFilterYear}
-                        placeholder="All years"
-                        options={[
-                          { value: "", label: "All years" },
-                          ...availableYears.map((y) => ({
-                            value: y,
-                            label: y,
-                          })),
-                        ]}
-                      />
+                    <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
+                      <div>
+                        <label className={labelCls}>Min Amount</label>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={minAmount}
+                          onChange={(e) => setMinAmount(e.target.value)}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Max Amount</label>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="Any"
+                          value={maxAmount}
+                          onChange={(e) => setMaxAmount(e.target.value)}
+                          className={inputCls}
+                        />
+                      </div>
                     </div>
                   </div>
+                  {activeAdvancedCount > 0 && (
+                    <button
+                      onClick={() => {
+                        setDateFrom("");
+                        setDateTo("");
+                        setFilterMonthNum("");
+                        setFilterMonthYear("");
+                        setFilterYear("");
+                        setMinAmount("");
+                        setMaxAmount("");
+                      }}
+                      className="text-xs text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                    >
+                      Clear advanced filters
+                    </button>
+                  )}
                 </div>
-                <div className="h-px bg-border/60" />
-                <div>
-                  <p className="text-sm font-semibold text-foreground mb-3">
-                    💰 Amount Range
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className={labelCls}>Min Amount</label>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="0"
-                        value={minAmount}
-                        onChange={(e) => setMinAmount(e.target.value)}
-                        className={inputCls}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Max Amount</label>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="Any"
-                        value={maxAmount}
-                        onChange={(e) => setMaxAmount(e.target.value)}
-                        className={inputCls}
-                      />
-                    </div>
-                  </div>
-                </div>
-                {activeAdvancedCount > 0 && (
-                  <button
-                    onClick={() => {
-                      setDateFrom("");
-                      setDateTo("");
-                      setFilterMonthNum("");
-                      setFilterMonthYear("");
-                      setFilterYear("");
-                      setMinAmount("");
-                      setMaxAmount("");
-                    }}
-                    className="text-xs text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-                  >
-                    Clear advanced filters
-                  </button>
-                )}
               </div>
             </motion.div>
           )}
@@ -533,26 +535,33 @@ export default function Transactions() {
           <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
             <button
               onClick={() => setShowByCategory((v) => !v)}
-              className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors cursor-pointer"
+              className="flex w-full flex-col gap-2 p-4 text-left transition-colors hover:bg-muted/30 min-[440px]:flex-row min-[440px]:items-center min-[440px]:justify-between"
             >
-              <div className="flex items-center gap-3">
-                <span className="text-base font-bold text-foreground">
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="min-w-0 break-words text-sm font-bold text-foreground sm:text-base">
                   Breakdown by Category
                 </span>
-                <div className="flex items-center gap-3 text-sm">
-                  <span className="text-income font-semibold">
+                {showByCategory ? (
+                  <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground min-[440px]:hidden" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground min-[440px]:hidden" />
+                )}
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm">
+                  <span className="font-semibold text-income">
                     +{formatCurrency(filteredIncome, currency)}
                   </span>
-                  <span className="text-expense font-semibold">
+                  <span className="font-semibold text-expense">
                     −{formatCurrency(filteredExpense, currency)}
                   </span>
                 </div>
+                {showByCategory ? (
+                  <ChevronUp className="hidden h-4 w-4 shrink-0 text-muted-foreground min-[440px]:block" />
+                ) : (
+                  <ChevronDown className="hidden h-4 w-4 shrink-0 text-muted-foreground min-[440px]:block" />
+                )}
               </div>
-              {showByCategory ? (
-                <ChevronUp className="w-4 h-4 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              )}
             </button>
 
             <AnimatePresence>
@@ -568,16 +577,16 @@ export default function Transactions() {
                     {categoryBreakdown.map(
                       ({ name, cat, income, expense, total }) => (
                         <div key={name} className="space-y-1">
-                          <div className="flex items-center justify-between text-sm">
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg">
+                          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="shrink-0 text-lg">
                                 {cat?.icon ?? "📦"}
                               </span>
-                              <span className="font-medium text-foreground">
+                              <span className="min-w-0 break-words font-medium text-foreground">
                                 {name}
                               </span>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-wrap items-center gap-3">
                               {income > 0 && (
                                 <span className="text-income text-xs font-semibold">
                                   +{formatCurrency(income, currency)}
@@ -639,14 +648,14 @@ export default function Transactions() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: Math.min(i * 0.04, 0.3) }}
                     key={tx.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-muted/30 transition-colors gap-3 sm:gap-0 group"
+                    className="group flex min-w-0 flex-col justify-between gap-3 p-4 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:gap-0"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex min-w-0 items-center gap-3 sm:gap-4">
                       <div className="w-12 h-12 rounded-xl bg-background border border-border flex items-center justify-center text-2xl shadow-sm flex-shrink-0">
                         {cat.icon}
                       </div>
-                      <div>
-                        <p className="font-semibold text-foreground text-base leading-tight">
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words font-semibold text-foreground text-base leading-tight">
                           {cat.name}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
@@ -660,7 +669,7 @@ export default function Transactions() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                    <div className="flex w-full min-w-0 items-center justify-between gap-2 sm:w-auto sm:justify-end sm:gap-4">
                       {tx.note && (
                         <p className="text-sm text-muted-foreground italic max-w-[150px] truncate hidden md:block">
                           "{tx.note}"
@@ -668,14 +677,14 @@ export default function Transactions() {
                       )}
                       <div
                         className={cn(
-                          "font-bold text-lg whitespace-nowrap min-w-[100px] text-right",
+                          "min-w-0 max-w-full text-right text-sm font-bold [overflow-wrap:anywhere] sm:min-w-[100px] sm:whitespace-nowrap sm:text-lg",
                           isIncome ? "text-income" : "text-expense",
                         )}
                       >
                         {isIncome ? "+" : "−"}
                         {formatCurrency(tx.amount, currency)}
                       </div>
-                      <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all">
+                      <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-all focus-within:opacity-100 group-hover:opacity-100 sm:gap-1 sm:opacity-0">
                         <button
                           type="button"
                           onClick={() => {

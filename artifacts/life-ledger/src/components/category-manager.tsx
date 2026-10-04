@@ -160,7 +160,7 @@ export function CategoryManager() {
         <button
           type="button"
           onClick={beginAdd}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:w-auto sm:shrink-0"
           data-testid="button-add-category"
         >
           <Plus className="h-4 w-4" />
@@ -246,7 +246,7 @@ export function CategoryManager() {
 
           <fieldset className="mt-4">
             <legend className="mb-2 text-sm font-medium">Choose an icon</legend>
-            <div className="grid grid-cols-7 gap-1.5 sm:grid-cols-11">
+            <div className="grid grid-cols-4 gap-1.5 min-[380px]:grid-cols-6 sm:grid-cols-11">
               {ICON_CHOICES.map((choice, index) => (
                 <button
                   key={`${choice}-${index}`}
