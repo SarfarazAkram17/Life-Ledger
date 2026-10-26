@@ -418,8 +418,8 @@ export default function Dashboard() {
                             {formatDate(tx.date)}
                             {tx.note && (
                               <>
-                                <span className="w-1 h-1 rounded-full bg-border hidden sm:inline-block"></span>
-                                <span className="truncate max-w-[80px] sm:max-w-[200px] hidden sm:inline">
+                                <span className="w-1 h-1 rounded-full bg-border inline-block"></span>
+                                <span className="truncate max-w-[80px] sm:max-w-[200px] inline">
                                   {tx.note}
                                 </span>
                               </>
