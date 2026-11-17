@@ -1,8 +1,10 @@
+import "dotenv/config";
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./utils/logger";
+import { env } from "./config/env";
 
 const app: Express = express();
 
@@ -20,7 +22,7 @@ app.use(
   }),
 );
 
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ origin: [env.clientUrl], credentials: true }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 

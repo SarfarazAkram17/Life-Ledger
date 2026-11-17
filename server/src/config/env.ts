@@ -18,4 +18,5 @@ export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   databaseUrl: required("DATABASE_URL"),
   jwtSecret: process.env.JWT_SECRET ?? "",
+  clientUrl: required("CLIENT_URL")
 };
