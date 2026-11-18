@@ -1,7 +1,9 @@
 import { Compass, Home } from "lucide-react";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { Link } from "wouter";
 
 export default function NotFound() {
+  usePageTitle("Page not found");
   return (
     <main className="relative isolate flex min-h-screen items-center justify-center overflow-hidden bg-background px-5 py-12 text-foreground">
       <div

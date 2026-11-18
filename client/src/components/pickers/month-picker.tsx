@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { format, parseISO } from "date-fns";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { createMonthKey } from "@/lib/month-comparison";
+import { currentMonthBD, currentYearBD } from "@/lib/bd-time";
 
 interface MonthPickerProps {
   value: string;
@@ -24,7 +25,7 @@ export function MonthPicker({ value, onChange, ariaLabel }: MonthPickerProps) {
     return String(
       Number.isInteger(year) && year >= 1 && year <= 9999
         ? year
-        : new Date().getFullYear(),
+        : currentYearBD(),
     );
   });
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
@@ -41,12 +42,12 @@ export function MonthPicker({ value, onChange, ariaLabel }: MonthPickerProps) {
     Number.isInteger(year) &&
     year >= 1 &&
     year <= 9999;
-  const currentMonthKey = format(new Date(), "yyyy-MM");
+  const currentMonthKey = currentMonthBD();
 
   useEffect(() => {
     if (!open) return;
     setYearInput(
-      String(selectedMonth?.getFullYear() ?? new Date().getFullYear()),
+      String(selectedMonth?.getFullYear() ?? currentYearBD()),
     );
   }, [open, value]);
 
@@ -110,7 +111,7 @@ export function MonthPicker({ value, onChange, ariaLabel }: MonthPickerProps) {
   }, [open]);
 
   const changeYear = (delta: number) => {
-    const baseYear = isYearValid ? year : new Date().getFullYear();
+    const baseYear = isYearValid ? year : currentYearBD();
     setYearInput(String(Math.min(9999, Math.max(1, baseYear + delta))));
   };
 

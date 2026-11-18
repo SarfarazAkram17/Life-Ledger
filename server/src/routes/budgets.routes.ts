@@ -3,6 +3,7 @@ import { db } from "../db";
 import { budgetsTable, categoriesTable } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../middleware/auth.middleware";
+import { toWholeAmount } from "../utils/bd-time";
 
 const router = Router();
 router.use(requireAuth);
@@ -30,6 +31,11 @@ router.post("/", async (req: AuthRequest, res) => {
       res.status(400).json({ error: "category, amount, and monthKey are required" });
       return;
     }
+    const wholeAmount = toWholeAmount(amount);
+    if (wholeAmount === null) {
+      res.status(400).json({ error: "Amount must be a whole number of at least 1" });
+      return;
+    }
     const existing = await db.select().from(budgetsTable)
       .where(and(
         eq(budgetsTable.userId, req.user!.userId),
@@ -38,7 +44,7 @@ router.post("/", async (req: AuthRequest, res) => {
       )).limit(1);
     if (existing.length > 0) {
       const [updated] = await db.update(budgetsTable)
-        .set({ amount: String(amount) })
+        .set({ amount: String(wholeAmount) })
         .where(eq(budgetsTable.id, existing[0].id))
         .returning();
       res.json({ id: updated.id, category: updated.category, amount: Number(updated.amount), monthKey: updated.monthKey });
@@ -59,7 +65,7 @@ router.post("/", async (req: AuthRequest, res) => {
       return;
     }
     const [budget] = await db.insert(budgetsTable).values({
-      userId: req.user!.userId, category, amount: String(amount), monthKey,
+      userId: req.user!.userId, category, amount: String(wholeAmount), monthKey,
     }).returning();
     res.status(201).json({ id: budget.id, category: budget.category, amount: Number(budget.amount), monthKey: budget.monthKey });
   } catch (err) {
@@ -72,9 +78,10 @@ router.put("/:id", async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const { amount } = req.body as { amount?: number };
-    if (!amount) { res.status(400).json({ error: "amount is required" }); return; }
+    const wholeAmount = toWholeAmount(amount);
+    if (wholeAmount === null) { res.status(400).json({ error: "Amount must be a whole number of at least 1" }); return; }
     const [budget] = await db.update(budgetsTable)
-      .set({ amount: String(amount) })
+      .set({ amount: String(wholeAmount) })
       .where(and(eq(budgetsTable.id, id), eq(budgetsTable.userId, req.user!.userId)))
       .returning();
     if (!budget) { res.status(404).json({ error: "Budget not found" }); return; }

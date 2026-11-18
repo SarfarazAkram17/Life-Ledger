@@ -5,6 +5,7 @@ import { categoriesTable, usersTable, userPrefsTable } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { DEFAULT_CATEGORIES } from "../utils/default-categories";
 import { signToken } from "../utils/jwt";
+import { clearPinUnlockCookie, clearSessionCookie, setSessionCookie } from "../utils/cookies";
 import { requireAuth, AuthRequest } from "../middleware/auth.middleware";
 
 const router = Router();
@@ -61,9 +62,9 @@ router.post("/register", async (req, res): Promise<void> => {
       return createdUser;
     });
 
-    const token = signToken({ userId: newUser.id, email: newUser.email });
+    setSessionCookie(res, signToken({ userId: newUser.id, email: newUser.email }));
+    clearPinUnlockCookie(res);
     res.status(201).json({
-      token,
       user: { id: newUser.id, email: newUser.email, displayName: newUser.displayName },
     });
   } catch (err) {
@@ -92,15 +93,22 @@ router.post("/login", async (req, res) => {
       return;
     }
 
-    const token = signToken({ userId: user.id, email: user.email });
+    setSessionCookie(res, signToken({ userId: user.id, email: user.email }));
+    // A fresh login always starts locked: the PIN has to be entered again.
+    clearPinUnlockCookie(res);
     res.json({
-      token,
       user: { id: user.id, email: user.email, displayName: user.displayName },
     });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Server error" });
   }
+});
+
+router.post("/logout", (_req, res) => {
+  clearSessionCookie(res);
+  clearPinUnlockCookie(res);
+  res.status(204).end();
 });
 
 router.get("/me", requireAuth, async (req: AuthRequest, res) => {

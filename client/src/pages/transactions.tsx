@@ -10,7 +10,17 @@ import { Layout } from "@/components/layout/layout";
 import { useData, TransactionType, Transaction } from "@/contexts/data-context";
 import { useTheme } from "@/contexts/theme-context";
 import { formatCurrency, cn } from "@/lib/utils";
-import { format, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
+import { Amount } from "@/components/amount";
+import { HighlightText } from "@/components/highlight-text";
+import { usePageTitle } from "@/hooks/use-page-title";
+import { currentYearBD, todayBD, yesterdayBD } from "@/lib/bd-time";
+import {
+  DATE_FORMAT,
+  formatDate,
+  formatDateLong,
+  formatDayMonth,
+} from "@/lib/date-format";
 import {
   Filter,
   Trash2,
@@ -164,12 +174,35 @@ const MONTHS = [
   "December",
 ];
 
+type SortOption = "newest" | "oldest" | "highest" | "lowest";
+
+const SORT_OPTIONS: FilterSelectOption[] = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "highest", label: "Highest amount" },
+  { value: "lowest", label: "Lowest amount" },
+];
+
+const SEARCH_DEBOUNCE_MS = 250;
+
+type FilterChip = { key: string; label: string; onRemove: () => void };
+
+type DayGroup = {
+  date: string;
+  items: Transaction[];
+  net: number;
+};
+
 export default function Transactions() {
+  usePageTitle("Transactions");
   const { transactions, categories, deleteTransaction } = useData();
   const { currency } = useTheme();
 
   const [filterType, setFilterType] = useState<TransactionType | "all">("all");
+  // `searchInput` follows every keystroke; `searchTerm` is the debounced value used to filter.
+  const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [filterMonthNum, setFilterMonthNum] = useState("");
@@ -204,9 +237,22 @@ export default function Transactions() {
     filterMonthNum && filterMonthYear ? "1" : "",
   ].filter(Boolean).length;
 
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setSearchTerm(searchInput.trim()),
+      SEARCH_DEBOUNCE_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const clearSearch = () => {
+    setSearchInput("");
+    setSearchTerm("");
+  };
+
   const clearAllFilters = () => {
     setFilterType("all");
-    setSearchTerm("");
+    clearSearch();
     setDateFrom("");
     setDateTo("");
     setFilterMonthNum("");
@@ -258,6 +304,112 @@ export default function Transactions() {
     ],
   );
 
+  const sorted = useMemo(() => {
+    const list = [...filtered];
+    const byDate = (a: Transaction, b: Transaction) =>
+      a.date.localeCompare(b.date) ||
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    switch (sortBy) {
+      case "oldest":
+        return list.sort(byDate);
+      case "highest":
+        return list.sort((a, b) => b.amount - a.amount);
+      case "lowest":
+        return list.sort((a, b) => a.amount - b.amount);
+      default:
+        return list.sort((a, b) => byDate(b, a));
+    }
+  }, [filtered, sortBy]);
+
+  // Date sorts are grouped by day; amount sorts stay a flat list.
+  const isGrouped = sortBy === "newest" || sortBy === "oldest";
+  const groups = useMemo<DayGroup[]>(() => {
+    if (!isGrouped) return [];
+    const result: DayGroup[] = [];
+    for (const tx of sorted) {
+      const date = tx.date.slice(0, 10);
+      let group = result[result.length - 1];
+      if (!group || group.date !== date) {
+        group = { date, items: [], net: 0 };
+        result.push(group);
+      }
+      group.items.push(tx);
+      group.net += tx.type === "income" ? tx.amount : -tx.amount;
+    }
+    return result;
+  }, [sorted, isGrouped]);
+
+  const getGroupLabel = (date: string) => {
+    if (date === todayBD()) return "Today";
+    if (date === yesterdayBD()) return "Yesterday";
+    const parsed = parseISO(date);
+    const label = formatDayMonth(parsed, DATE_FORMAT);
+    return parsed.getFullYear() === currentYearBD()
+      ? label
+      : `${label} ${parsed.getFullYear()}`;
+  };
+
+  const filterChips: FilterChip[] = [];
+  if (filterType !== "all") {
+    filterChips.push({
+      key: "type",
+      label: filterType === "income" ? "Income" : "Expense",
+      onRemove: () => setFilterType("all"),
+    });
+  }
+  if (searchTerm) {
+    filterChips.push({
+      key: "search",
+      label: `“${searchTerm}”`,
+      onRemove: clearSearch,
+    });
+  }
+  if (dateFrom) {
+    filterChips.push({
+      key: "from",
+      label: `From ${formatDate(parseISO(dateFrom), DATE_FORMAT)}`,
+      onRemove: () => setDateFrom(""),
+    });
+  }
+  if (dateTo) {
+    filterChips.push({
+      key: "to",
+      label: `To ${formatDate(parseISO(dateTo), DATE_FORMAT)}`,
+      onRemove: () => setDateTo(""),
+    });
+  }
+  if (filterMonthNum && filterMonthYear) {
+    filterChips.push({
+      key: "month",
+      label: `${MONTHS[Number(filterMonthNum) - 1] ?? filterMonthNum} ${filterMonthYear}`,
+      onRemove: () => {
+        setFilterMonthNum("");
+        setFilterMonthYear("");
+      },
+    });
+  }
+  if (filterYear) {
+    filterChips.push({
+      key: "year",
+      label: `Year ${filterYear}`,
+      onRemove: () => setFilterYear(""),
+    });
+  }
+  if (minAmount) {
+    filterChips.push({
+      key: "min",
+      label: `Min ${formatCurrency(Number(minAmount), currency)}`,
+      onRemove: () => setMinAmount(""),
+    });
+  }
+  if (maxAmount) {
+    filterChips.push({
+      key: "max",
+      label: `Max ${formatCurrency(Number(maxAmount), currency)}`,
+      onRemove: () => setMaxAmount(""),
+    });
+  }
+
   // Category breakdown of filtered transactions
   const categoryBreakdown = useMemo(() => {
     const map = new Map<string, { income: number; expense: number }>();
@@ -299,6 +451,94 @@ export default function Transactions() {
     }
   };
 
+  const renderRow = (tx: Transaction, i: number, showDate: boolean) => {
+    const cat = getCategory(tx.category);
+    const isIncome = tx.type === "income";
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: Math.min(i * 0.04, 0.3) }}
+        key={tx.id}
+        className="group flex min-w-0 flex-col justify-between gap-3 p-4 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:gap-0"
+      >
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+          <div className="w-12 h-12 rounded-xl bg-background border border-border flex items-center justify-center text-2xl shadow-sm flex-shrink-0">
+            {cat.icon}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="break-words font-semibold text-foreground text-base leading-tight">
+              <HighlightText text={cat.name} query={searchTerm} />
+            </p>
+            {showDate && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {formatDateLong(parseISO(tx.date), DATE_FORMAT)}
+              </p>
+            )}
+            {tx.note && (
+              <p className="text-xs text-muted-foreground italic mt-0.5 md:hidden">
+                “<HighlightText text={tx.note} query={searchTerm} />”
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex w-full min-w-0 items-center justify-between gap-2 sm:w-auto sm:justify-end sm:gap-4">
+          {tx.note && (
+            <p className="text-sm text-muted-foreground italic max-w-[150px] truncate hidden md:block">
+              “<HighlightText text={tx.note} query={searchTerm} />”
+            </p>
+          )}
+          <div
+            className={cn(
+              "min-w-0 max-w-full text-right text-sm font-bold sm:min-w-[100px] sm:text-lg",
+              isIncome ? "text-income" : "text-expense",
+            )}
+          >
+            {isIncome ? "+" : "−"}
+            <Amount value={tx.amount} currency={currency} />
+          </div>
+          <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setDuplicateTx(null);
+                setEditTx(tx);
+              }}
+              className="p-2 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all cursor-pointer"
+              aria-label={`Edit ${cat.name} transaction`}
+              title="Edit transaction"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              data-testid={`button-duplicate-transaction-${tx.id}`}
+              onClick={() => {
+                setEditTx(null);
+                setDuplicateTx(tx);
+              }}
+              className="p-2 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all cursor-pointer"
+              aria-label={`Duplicate ${cat.name} transaction`}
+              title="Duplicate transaction"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeleteId(tx.id)}
+              className="p-2 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all cursor-pointer"
+              aria-label={`Delete ${cat.name} transaction`}
+              title="Delete transaction"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
   const inputCls =
     "w-full bg-card border border-border rounded-xl py-2.5 px-3 text-sm outline-none focus:border-primary transition-all text-foreground placeholder:text-muted-foreground";
   const labelCls = "text-xs font-medium text-muted-foreground mb-1.5 block";
@@ -310,16 +550,6 @@ export default function Transactions() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h1 className="text-2xl font-bold sm:text-3xl">Transactions</h1>
           <div className="flex items-center gap-3 flex-wrap">
-            {(filterType !== "all" ||
-              searchTerm ||
-              activeAdvancedCount > 0) && (
-              <button
-                onClick={clearAllFilters}
-                className="flex items-center gap-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 px-3 py-1.5 rounded-full border border-destructive/30 transition-colors cursor-pointer"
-              >
-                <X className="w-3 h-3" /> Clear filters
-              </button>
-            )}
             <div className="text-muted-foreground text-sm font-medium bg-card px-3 py-1.5 rounded-full border border-border">
               {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
             </div>
@@ -333,9 +563,27 @@ export default function Transactions() {
             <input
               type="text"
               placeholder="Search by category or note..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-card border border-border rounded-xl text-sm focus:outline-none focus:border-primary transition-all"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full pl-9 pr-9 py-2.5 bg-card border border-border rounded-xl text-sm focus:outline-none focus:border-primary transition-all"
+            />
+            {searchInput && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          <div className="w-full sm:w-44">
+            <FilterSelect
+              value={sortBy}
+              onChange={(v) => setSortBy(v as SortOption)}
+              options={SORT_OPTIONS}
+              placeholder="Sort by"
             />
           </div>
           <div className="flex w-full rounded-xl border border-border bg-card p-1 sm:w-auto">
@@ -381,6 +629,38 @@ export default function Transactions() {
             )}
           </button>
         </div>
+
+        {/* Active filter chips */}
+        {filterChips.length > 0 && (
+          <div
+            className="flex flex-wrap items-center gap-2"
+            aria-label="Active filters"
+          >
+            {filterChips.map((chip) => (
+              <span
+                key={chip.key}
+                className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 py-1 pl-3 pr-1 text-xs font-medium text-primary"
+              >
+                <span className="max-w-[200px] truncate">{chip.label}</span>
+                <button
+                  type="button"
+                  onClick={chip.onRemove}
+                  aria-label={`Remove filter: ${chip.label}`}
+                  className="cursor-pointer rounded-full p-0.5 transition-colors hover:bg-primary/20"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="cursor-pointer rounded-full px-2 py-1 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
 
         {/* Advanced Filter Panel */}
         <AnimatePresence>
@@ -487,22 +767,26 @@ export default function Transactions() {
                       <div>
                         <label className={labelCls}>Min Amount</label>
                         <input
-                          type="number"
-                          min="0"
+                          type="text"
+                          inputMode="numeric"
                           placeholder="0"
                           value={minAmount}
-                          onChange={(e) => setMinAmount(e.target.value)}
+                          onChange={(e) =>
+                            setMinAmount(e.target.value.replace(/\D/g, ""))
+                          }
                           className={inputCls}
                         />
                       </div>
                       <div>
                         <label className={labelCls}>Max Amount</label>
                         <input
-                          type="number"
-                          min="0"
+                          type="text"
+                          inputMode="numeric"
                           placeholder="Any"
                           value={maxAmount}
-                          onChange={(e) => setMaxAmount(e.target.value)}
+                          onChange={(e) =>
+                            setMaxAmount(e.target.value.replace(/\D/g, ""))
+                          }
                           className={inputCls}
                         />
                       </div>
@@ -550,10 +834,10 @@ export default function Transactions() {
               <div className="flex items-center gap-4">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm">
                   <span className="font-semibold text-income">
-                    +{formatCurrency(filteredIncome, currency)}
+                    +<Amount value={filteredIncome} currency={currency} />
                   </span>
                   <span className="font-semibold text-expense">
-                    −{formatCurrency(filteredExpense, currency)}
+                    −<Amount value={filteredExpense} currency={currency} />
                   </span>
                 </div>
                 {showByCategory ? (
@@ -589,12 +873,12 @@ export default function Transactions() {
                             <div className="flex flex-wrap items-center gap-3">
                               {income > 0 && (
                                 <span className="text-income text-xs font-semibold">
-                                  +{formatCurrency(income, currency)}
+                                  +<Amount value={income} currency={currency} />
                                 </span>
                               )}
                               {expense > 0 && (
                                 <span className="text-expense text-xs font-semibold">
-                                  −{formatCurrency(expense, currency)}
+                                  −<Amount value={expense} currency={currency} />
                                 </span>
                               )}
                             </div>
@@ -628,102 +912,68 @@ export default function Transactions() {
         )}
 
         {/* Transaction List */}
-        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-          {filtered.length === 0 ? (
+        {/* overflow-clip (not hidden) keeps the rounded corners while letting day headers stick */}
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-clip">
+          {sorted.length === 0 ? (
             <div className="p-16 text-center text-muted-foreground flex flex-col items-center gap-3">
               <Filter className="w-14 h-14 opacity-20" />
-              <p className="text-lg font-medium text-foreground">
-                No transactions found
-              </p>
-              <p className="text-sm">Try adjusting your filters.</p>
+              {transactions.length === 0 ? (
+                <>
+                  <p className="text-lg font-medium text-foreground">
+                    No transactions yet
+                  </p>
+                  <p className="text-sm">
+                    Add your first transaction and it will show up here.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-medium text-foreground break-words">
+                    {searchTerm
+                      ? `No results for “${searchTerm}”`
+                      : "No transactions match your filters"}
+                  </p>
+                  <p className="text-sm">
+                    Try a different search, or clear your filters.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="mt-1 cursor-pointer rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+                  >
+                    Clear filters
+                  </button>
+                </>
+              )}
             </div>
+          ) : isGrouped ? (
+            groups.map((group) => (
+              <section key={group.date} aria-label={getGroupLabel(group.date)}>
+                <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border/50 bg-card/95 px-4 py-2 text-xs font-semibold backdrop-blur supports-[backdrop-filter]:bg-card/80">
+                  <span className="uppercase tracking-wide text-muted-foreground">
+                    {getGroupLabel(group.date)}
+                  </span>
+                  <span
+                    className={cn(
+                      group.net > 0
+                        ? "text-income"
+                        : group.net < 0
+                          ? "text-expense"
+                          : "text-muted-foreground",
+                    )}
+                  >
+                    {group.net > 0 ? "+" : group.net < 0 ? "−" : ""}
+                    <Amount value={Math.abs(group.net)} currency={currency} />
+                  </span>
+                </div>
+                <div className="divide-y divide-border/50 border-b border-border/50 last:border-b-0">
+                  {group.items.map((tx, i) => renderRow(tx, i, false))}
+                </div>
+              </section>
+            ))
           ) : (
             <div className="divide-y divide-border/50">
-              {filtered.map((tx, i) => {
-                const cat = getCategory(tx.category);
-                const isIncome = tx.type === "income";
-                return (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i * 0.04, 0.3) }}
-                    key={tx.id}
-                    className="group flex min-w-0 flex-col justify-between gap-3 p-4 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:gap-0"
-                  >
-                    <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-background border border-border flex items-center justify-center text-2xl shadow-sm flex-shrink-0">
-                        {cat.icon}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words font-semibold text-foreground text-base leading-tight">
-                          {cat.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {format(parseISO(tx.date), "MMMM d, yyyy")}
-                        </p>
-                        {tx.note && (
-                          <p className="text-xs text-muted-foreground italic mt-0.5 md:hidden">
-                            "{tx.note}"
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex w-full min-w-0 items-center justify-between gap-2 sm:w-auto sm:justify-end sm:gap-4">
-                      {tx.note && (
-                        <p className="text-sm text-muted-foreground italic max-w-[150px] truncate hidden md:block">
-                          "{tx.note}"
-                        </p>
-                      )}
-                      <div
-                        className={cn(
-                          "min-w-0 max-w-full text-right text-sm font-bold [overflow-wrap:anywhere] sm:min-w-[100px] sm:whitespace-nowrap sm:text-lg",
-                          isIncome ? "text-income" : "text-expense",
-                        )}
-                      >
-                        {isIncome ? "+" : "−"}
-                        {formatCurrency(tx.amount, currency)}
-                      </div>
-                      <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDuplicateTx(null);
-                            setEditTx(tx);
-                          }}
-                          className="p-2 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all cursor-pointer"
-                          aria-label={`Edit ${cat.name} transaction`}
-                          title="Edit transaction"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          data-testid={`button-duplicate-transaction-${tx.id}`}
-                          onClick={() => {
-                            setEditTx(null);
-                            setDuplicateTx(tx);
-                          }}
-                          className="p-2 rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all cursor-pointer"
-                          aria-label={`Duplicate ${cat.name} transaction`}
-                          title="Duplicate transaction"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteId(tx.id)}
-                          className="p-2 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all cursor-pointer"
-                          aria-label={`Delete ${cat.name} transaction`}
-                          title="Delete transaction"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
+              {sorted.map((tx, i) => renderRow(tx, i, true))}
             </div>
           )}
         </div>

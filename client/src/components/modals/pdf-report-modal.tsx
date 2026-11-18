@@ -23,6 +23,18 @@ import { useData } from "@/contexts/data-context";
 import { useTheme } from "@/contexts/theme-context";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
+import { nowBD } from "@/lib/bd-time";
+import {
+  DATE_FORMAT,
+  WEEK_START,
+  formatDateLong,
+  formatDateShort,
+  formatDayMonth,
+  getDayColumn,
+  getWeekEndDate,
+  getWeekStartDate,
+  getWeekdayHeaders,
+} from "@/lib/date-format";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -33,27 +45,6 @@ interface PdfReportModalProps {
   onClose: () => void;
 }
 
-// Week starts Saturday: JS day 0=Sun,1=Mon,...,5=Fri,6=Sat
-const getWeekStart = (date: Date): Date => {
-  const d = new Date(date);
-  const day = d.getDay(); // 0=Sun…6=Sat
-  const diff = day === 6 ? 0 : day + 1; // days to go back to reach Saturday
-  d.setDate(d.getDate() - diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
-const getWeekEnd = (ws: Date): Date => {
-  const d = new Date(ws);
-  d.setDate(d.getDate() + 6);
-  d.setHours(23, 59, 59, 999);
-  return d;
-};
-
-// Calendar grid: week starts Saturday
-// Sat(6)->col 0, Sun(0)->1, Mon(1)->2, Tue(2)->3, Wed(3)->4, Thu(4)->5, Fri(5)->6
-const getDayCol = (jsDay: number) => (jsDay === 6 ? 0 : jsDay + 1);
-
-const WEEK_HEADERS = ["Sa", "Su", "Mo", "Tu", "We", "Th", "Fr"];
 const MONTH_NAMES_SHORT = [
   "Jan",
   "Feb",
@@ -88,7 +79,13 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
   const { transactions, budgets, categories } = useData();
   const { currency } = useTheme();
 
-  const today = useMemo(() => new Date(), []);
+  // Week boundaries follow the first-day-of-week preference from Settings.
+  const getWeekStart = (date: Date): Date => getWeekStartDate(date, WEEK_START);
+  const getWeekEnd = getWeekEndDate;
+  const getDayCol = (jsDay: number) => getDayColumn(jsDay, WEEK_START);
+  const WEEK_HEADERS = getWeekdayHeaders(WEEK_START);
+
+  const today = useMemo(() => nowBD(), []);
 
   const [periodType, setPeriodType] = useState<PeriodType>("month");
   const [selectedDate, setSelectedDate] = useState<Date>(today);
@@ -139,12 +136,12 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
     } else if (periodType === "day") {
       start = startOfDay(selectedDate);
       end = endOfDay(selectedDate);
-      label = format(selectedDate, "MMMM d, yyyy");
+      label = formatDateLong(selectedDate, DATE_FORMAT);
     } else if (periodType === "week") {
       const ws = getWeekStart(selectedDate);
       start = ws;
       end = getWeekEnd(ws);
-      label = `${format(ws, "MMM d")} – ${format(end, "MMM d, yyyy")}`;
+      label = `${formatDayMonth(ws, DATE_FORMAT)} – ${formatDateShort(end, DATE_FORMAT)}`;
     } else if (periodType === "month") {
       start = startOfMonth(selectedDate);
       end = endOfMonth(selectedDate);
@@ -226,7 +223,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
   };
 
   const setPreset = (p: "today" | "this_week" | "this_month" | "this_year") => {
-    const t = new Date();
+    const t = nowBD();
     setSelectedDate(t);
     setCalView(t);
     const map = {
@@ -244,11 +241,11 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
   };
 
   const formatCurrency = (amount: number, currency: string = "USD"): string => {
-    const formatted = Math.abs(amount).toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+    const rounded = Math.round(amount);
+    const formatted = Math.abs(rounded).toLocaleString("en-US", {
+      maximumFractionDigits: 0,
     });
-    return `${amount < 0 ? "-" : ""}${currency} ${formatted}`;
+    return `${rounded < 0 ? "-" : ""}${currency} ${formatted}`;
   };
 
   // Build PDF
@@ -258,10 +255,10 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
       const doc = new jsPDF();
       const getCat = (id: string) =>
         categories.find((category) => category.id === id)?.name ?? id;
-      const now = format(new Date(), "MMMM d, yyyy");
+      const now = formatDateLong(nowBD(), DATE_FORMAT);
       const primary: [number, number, number] = [30, 215, 96];
       const reportLabel = allTime ? "All Time" : rangeLabel;
-      const reportDateRange = `${format(rangeStart, "MMM d, yyyy")} – ${format(rangeEnd, "MMM d, yyyy")}`;
+      const reportDateRange = `${formatDateShort(rangeStart, DATE_FORMAT)} – ${formatDateShort(rangeEnd, DATE_FORMAT)}`;
       const reportTransactions = allTime ? transactions : filteredTxs;
       const reportBudgets = allTime ? budgets : filteredBudgets;
       const reportTotals = allTime
@@ -341,7 +338,7 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
           startY: txY + 5,
           head: [["Date", "Type", "Category", "Amount", "Note"]],
           body: reportTransactions.map((tx) => [
-            format(parseISO(tx.date), "MMM d, yyyy"),
+            formatDateShort(parseISO(tx.date), DATE_FORMAT),
             tx.type === "income" ? "Income" : "Expense",
             getCat(tx.category),
             (tx.type === "income" ? "+" : "-") +
@@ -505,12 +502,12 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                     {[
                       {
                         label: "Today",
-                        sub: format(today, "MMM d"),
+                        sub: formatDayMonth(today, DATE_FORMAT),
                         preset: "today" as const,
                       },
                       {
                         label: "This Week",
-                        sub: `${format(getWeekStart(today), "MMM d")} – ${format(getWeekEnd(getWeekStart(today)), "MMM d")}`,
+                        sub: `${formatDayMonth(getWeekStart(today), DATE_FORMAT)} – ${formatDayMonth(getWeekEnd(getWeekStart(today)), DATE_FORMAT)}`,
                         preset: "this_week" as const,
                       },
                       {
@@ -658,8 +655,8 @@ export function PdfReportModal({ isOpen, onClose }: PdfReportModalProps) {
                         })()}
                         {periodType === "all" && (
                           <p className="mb-2 rounded-lg bg-primary/10 px-2 py-1.5 text-center text-[10px] font-medium text-primary">
-                            Full range: {format(allTimeStart, "MMM d, yyyy")} –{" "}
-                            {format(allTimeEnd, "MMM d, yyyy")}
+                            Full range: {formatDateShort(allTimeStart, DATE_FORMAT)} –{" "}
+                            {formatDateShort(allTimeEnd, DATE_FORMAT)}
                           </p>
                         )}
                         <div className="grid grid-cols-7 text-center mb-1">

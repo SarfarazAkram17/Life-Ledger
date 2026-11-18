@@ -2,7 +2,14 @@ import React, { useState, useMemo } from "react";
 import { Layout } from "@/components/layout/layout";
 import { useData } from "@/contexts/data-context";
 import { useTheme } from "@/contexts/theme-context";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatPercent } from "@/lib/utils";
+import { usePageTitle } from "@/hooks/use-page-title";
+import { currentMonthBD, currentYearBD } from "@/lib/bd-time";
+import {
+  DATE_FORMAT,
+  formatDateLong,
+  formatWeekdayDayMonth,
+} from "@/lib/date-format";
 import { format, parse, parseISO } from "date-fns";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -94,7 +101,7 @@ function TrendYearFilter({
   testIdPrefix: string;
   onChange: (year: number) => void;
 }) {
-  const currentYear = new Date().getFullYear();
+  const currentYear = currentYearBD();
 
   return (
     <div
@@ -151,6 +158,7 @@ const IncomeTrendChart = React.lazy(
 );
 
 export default function Analytics() {
+  usePageTitle("Analytics");
   const { transactions, categories } = useData();
   const { currency } = useTheme();
   const [selectedBreakdown, setSelectedBreakdown] =
@@ -160,15 +168,13 @@ export default function Analytics() {
   const [selectedIncomeTrendSourceId, setSelectedIncomeTrendSourceId] =
     useState("");
   const [selectedSpendingTrendYear, setSelectedSpendingTrendYear] = useState(
-    new Date().getFullYear(),
+    currentYearBD(),
   );
   const [selectedIncomeTrendYear, setSelectedIncomeTrendYear] = useState(
-    new Date().getFullYear(),
+    currentYearBD(),
   );
-  const [activeMonthStr, setActiveMonthStr] = useState(
-    format(new Date(), "yyyy-MM"),
-  );
-  const currentMonthStr = format(new Date(), "yyyy-MM");
+  const [activeMonthStr, setActiveMonthStr] = useState(currentMonthBD());
+  const currentMonthStr = currentMonthBD();
   const isViewingOtherMonth = activeMonthStr !== currentMonthStr;
 
   const spedndingsStats = useMemo(() => {
@@ -392,7 +398,7 @@ export default function Analytics() {
                   key={d.date}
                   type="button"
                   data-testid={`button-chart-day-${d.day}`}
-                  aria-label={`${format(parseISO(d.date), "MMMM d, yyyy")}: income ${formatCurrency(d.income, currency)}, expense ${formatCurrency(d.expense, currency)}`}
+                  aria-label={`${formatWeekdayDayMonth(parseISO(d.date), DATE_FORMAT)}: income ${formatCurrency(d.income, currency)}, expense ${formatCurrency(d.expense, currency)}`}
                   aria-pressed={isSelected}
                   onClick={() => setActiveChartDate(isSelected ? null : d.date)}
                   className="group relative flex h-full flex-1 cursor-pointer appearance-none flex-col items-center justify-end rounded-t-sm border-0 bg-transparent p-0 text-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
@@ -406,7 +412,7 @@ export default function Analytics() {
                     } ${tooltipAlignment}`}
                   >
                     <span className="mb-0.5 block font-bold">
-                      {format(parseISO(d.date), "MMMM d, yyyy")}
+                      {formatWeekdayDayMonth(parseISO(d.date), DATE_FORMAT)}
                     </span>
                     <span className="block text-income">
                       Income: {formatCurrency(d.income, currency)}
@@ -508,7 +514,7 @@ export default function Analytics() {
                         {formatCurrency(ear.amount, currency)}
                       </span>
                       <span className="text-xs font-medium text-muted-foreground">
-                        {ear.percentage.toFixed(1)}%
+                        {formatPercent(ear.percentage)}
                       </span>
                     </div>
                   </div>
@@ -591,7 +597,7 @@ export default function Analytics() {
                         {formatCurrency(spen.amount, currency)}
                       </span>
                       <span className="text-xs font-medium text-muted-foreground">
-                        {spen.percentage.toFixed(1)}%
+                        {formatPercent(spen.percentage)}
                       </span>
                     </div>
                   </div>
@@ -853,7 +859,7 @@ export default function Analytics() {
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-foreground">
-                        {format(parseISO(transaction.date), "MMMM d, yyyy")}
+                        {formatDateLong(parseISO(transaction.date), DATE_FORMAT)}
                       </p>
                       {transaction.note && (
                         <p className="mt-0.5 truncate text-xs text-muted-foreground">

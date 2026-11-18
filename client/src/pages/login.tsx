@@ -1,10 +1,12 @@
 import React, { useState } from "react";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
 import { ArrowRight, Lock, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Login() {
+  usePageTitle("Log in");
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

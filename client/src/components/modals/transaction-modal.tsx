@@ -4,7 +4,7 @@ import { X, Check } from "lucide-react";
 import { cn, getCurrencySymbol } from "@/lib/utils";
 import { useData, TransactionType, Transaction } from "@/contexts/data-context";
 import { useTheme } from "@/contexts/theme-context";
-import { format } from "date-fns";
+import { todayBD } from "@/lib/bd-time";
 import { DatePicker } from "@/components/pickers/date-picker";
 
 interface TransactionModalProps {
@@ -26,7 +26,7 @@ export function TransactionModal({
   const isEditMode = !!editTx;
   const isDuplicateMode = !isEditMode && !!duplicateTx;
   const sourceTx = editTx ?? duplicateTx;
-  const today = format(new Date(), "yyyy-MM-dd");
+  const today = todayBD();
 
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
@@ -38,7 +38,7 @@ export function TransactionModal({
     if (isOpen) {
       if (sourceTx) {
         setType(sourceTx.type);
-        setAmount(String(sourceTx.amount));
+        setAmount(String(Math.round(sourceTx.amount)));
         setCategory(sourceTx.category);
         setDate(sourceTx.date.split("T")[0]);
         setNote(sourceTx.note || "");
@@ -70,11 +70,11 @@ export function TransactionModal({
       !hasValidCategory
     )
       return;
-    const payload = { type, amount: Number(amount), category, date, note };
+    const payload = { type, amount: Math.round(Number(amount)), category, date, note };
     if (isEditMode && editTx) {
-      updateTransaction(editTx.id, payload);
+      void updateTransaction(editTx.id, payload);
     } else {
-      addTransaction(payload);
+      void addTransaction(payload);
     }
     onClose();
   };
@@ -166,12 +166,12 @@ export function TransactionModal({
                     </span>
                   </div>
                   <input
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="0.00"
+                    onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
+                    placeholder="0"
                     className={cn(
                       "w-full rounded-xl border-2 border-border bg-background py-4 pl-16 pr-4 text-2xl font-bold outline-none transition-all sm:text-3xl",
                       type === "expense"

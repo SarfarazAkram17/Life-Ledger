@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
+import { usePageTitle } from "@/hooks/use-page-title";
+import { todayBD } from "@/lib/bd-time";
 import { ConfirmModal } from "@/components/modals/confirm-modal";
 import { PdfReportModal } from "@/components/modals/pdf-report-modal";
 import { PinDigitBoxes } from "@/components/pin/pin-digit-boxes";
@@ -30,9 +32,16 @@ import { usePinLock } from "@/contexts/pin-lock-context";
 import type { PinLength } from "@/lib/pin-types";
 
 export default function Settings() {
+  usePageTitle("Settings");
   const { user, logout, updateDisplayName } = useAuth();
-  const { theme, setTheme, currency, setCurrency, avatar, setAvatar } =
-    useTheme();
+  const {
+    theme,
+    setTheme,
+    currency,
+    setCurrency,
+    avatar,
+    setAvatar,
+  } = useTheme();
   const {
     transactions,
     budgets,
@@ -251,7 +260,7 @@ export default function Settings() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    const filename = `lifeledger_${new Date().toISOString().split("T")[0]}.csv`;
+    const filename = `lifeledger_${todayBD()}.csv`;
     a.download = filename;
     a.click();
     window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
@@ -833,8 +842,8 @@ export default function Settings() {
         transactions={transactions}
         budgets={budgets}
         categories={categories}
-        onImport={addTransaction}
-        onImportBudget={addBudget}
+        onImport={(tx) => addTransaction(tx, { silent: true })}
+        onImportBudget={(budget) => addBudget(budget, { silent: true })}
       />
     </Layout>
   );

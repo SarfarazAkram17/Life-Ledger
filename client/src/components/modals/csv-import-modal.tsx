@@ -63,6 +63,7 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
 type ImportResult = {
   imported: number;
   importedBudgets: number;
+  skippedDuplicates: number;
   failures: {
     lineNumber: number;
     message: string;
@@ -261,7 +262,7 @@ function BudgetImportPreview({
                     </td>
                     <td className="px-3 py-3 text-right tabular-nums">
                       {row.amount?.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 0,
                       }) ?? "—"}
                     </td>
                     <td className="max-w-[20rem] px-3 py-3 text-xs">
@@ -590,6 +591,12 @@ export function CsvImportModal({
         (includedRows[row.lineNumber] ?? !row.possibleDuplicate),
     );
     if (rowsToImport.length + budgetsToImport.length === 0) return;
+    const skippedDuplicates = [...previewRows, ...budgetPreviewRows].filter(
+      (row) =>
+        row.errors.length === 0 &&
+        row.possibleDuplicate &&
+        !(includedRows[row.lineNumber] ?? false),
+    ).length;
     setIsImporting(true);
     setImportResult(null);
     setReviewTransactionsSnapshot(transactions);
@@ -675,7 +682,12 @@ export function CsvImportModal({
           failed: failures.length,
         });
       }
-      setImportResult({ imported, importedBudgets, failures });
+      setImportResult({
+        imported,
+        importedBudgets,
+        skippedDuplicates,
+        failures,
+      });
     } finally {
       setIsImporting(false);
       onClose();
@@ -690,6 +702,21 @@ export function CsvImportModal({
       ...current,
       [row.lineNumber]: checked,
     }));
+  };
+
+  // Transaction rows that match one already in the ledger (same date, amount and category).
+  const duplicateRows = previewRows.filter(
+    (row) => row.errors.length === 0 && row.possibleDuplicate,
+  );
+  const duplicatesIncluded =
+    duplicateRows.length > 0 &&
+    duplicateRows.every((row) => includedRows[row.lineNumber] === true);
+  const setDuplicatesIncluded = (include: boolean) => {
+    setIncludedRows((current) => {
+      const next = { ...current };
+      for (const row of duplicateRows) next[row.lineNumber] = include;
+      return next;
+    });
   };
 
   return (
@@ -1034,8 +1061,10 @@ export function CsvImportModal({
                                   </h3>
                                   <p className="mt-1 text-xs text-muted-foreground">
                                     Valid rows are selected by default. Invalid
-                                    rows stay blocked; possible duplicates start
-                                    unchecked.
+                                    rows stay blocked. Rows that match an
+                                    existing transaction (same date, amount and
+                                    category) are skipped, so importing the same
+                                    file again will not double your entries.
                                   </p>
                                 </div>
                                 <div
@@ -1051,10 +1080,29 @@ export function CsvImportModal({
                                     </span>
                                   )}
                                   {duplicateCount > 0 && (
-                                    <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
-                                      {duplicateCount} possible duplicate
-                                      {duplicateCount === 1 ? "" : "s"}
-                                    </span>
+                                    <>
+                                      <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                                        {duplicateCount} possible duplicate
+                                        {duplicateCount === 1 ? "" : "s"}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        data-testid="button-toggle-duplicates"
+                                        disabled={
+                                          isImporting || importResult !== null
+                                        }
+                                        onClick={() =>
+                                          setDuplicatesIncluded(
+                                            !duplicatesIncluded,
+                                          )
+                                        }
+                                        className="cursor-pointer rounded-full border border-amber-500/30 px-2.5 py-1 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-500/10 disabled:cursor-not-allowed disabled:opacity-50 dark:text-amber-300"
+                                      >
+                                        {duplicatesIncluded
+                                          ? "Skip duplicates"
+                                          : "Include duplicates"}
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               </div>
@@ -1189,8 +1237,7 @@ export function CsvImportModal({
                                                   : row.amount.toLocaleString(
                                                       undefined,
                                                       {
-                                                        minimumFractionDigits: 2,
-                                                        maximumFractionDigits: 2,
+                                                        maximumFractionDigits: 0,
                                                       },
                                                     )}
                                               </td>
@@ -1326,6 +1373,8 @@ export function CsvImportModal({
                                 ` (${importResult.imported} transactions, ${importResult.importedBudgets} budgets)`}
                               {importResult.failures.length > 0 &&
                                 ` · ${importResult.failures.length} failed`}
+                              {importResult.skippedDuplicates > 0 &&
+                                ` · ${importResult.skippedDuplicates} duplicate${importResult.skippedDuplicates === 1 ? "" : "s"} skipped`}
                             </p>
                             <p className="mt-1 text-xs text-muted-foreground">
                               {importResult.failures.length

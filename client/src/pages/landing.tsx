@@ -1,9 +1,11 @@
 import React from "react";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { Link } from "wouter";
 import { ArrowRight, Shield, PieChart, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Landing() {
+  usePageTitle();
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-[500px] overflow-hidden -z-10 opacity-30">

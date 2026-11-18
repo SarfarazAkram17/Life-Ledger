@@ -4,6 +4,14 @@ import { userPrefsTable } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../middleware/auth.middleware";
 
+function serialize(prefs: typeof userPrefsTable.$inferSelect) {
+  return {
+    theme: prefs.theme,
+    currency: prefs.currency,
+    avatar: prefs.avatar ?? null,
+  };
+}
+
 const router = Router();
 router.use(requireAuth);
 
@@ -16,7 +24,7 @@ router.get("/", async (req: AuthRequest, res) => {
       res.json({ theme: "emerald", currency: "USD", avatar: null });
       return;
     }
-    res.json({ theme: prefs.theme, currency: prefs.currency, avatar: prefs.avatar ?? null });
+    res.json(serialize(prefs));
   } catch (err) {
     console.error("Get prefs error:", err);
     res.status(500).json({ error: "Server error" });
@@ -41,7 +49,7 @@ router.put("/", async (req: AuthRequest, res) => {
       [prefs] = await db.update(userPrefsTable).set(updates)
         .where(eq(userPrefsTable.userId, req.user!.userId)).returning();
     }
-    res.json({ theme: prefs.theme, currency: prefs.currency, avatar: prefs.avatar ?? null });
+    res.json(serialize(prefs));
   } catch (err) {
     console.error("Update prefs error:", err);
     res.status(500).json({ error: "Server error" });

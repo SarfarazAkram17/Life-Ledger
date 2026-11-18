@@ -529,8 +529,11 @@ function parseBudgetMonth(value: string): string | null {
   return `${String(year).padStart(4, "0")}-${String(monthIndex + 1).padStart(2, "0")}`;
 }
 
-function amountToMinorUnits(amount: number): number {
-  return Math.round(amount * 100);
+// LifeLedger stores whole-number amounts, so a CSV value such as 15.25 is saved as 15.
+// Matching on the same rounded value is what makes re-importing a file recognise rows
+// that were already imported.
+function toWholeAmount(amount: number): number {
+  return Math.round(amount);
 }
 
 function duplicateKey(
@@ -542,7 +545,7 @@ function duplicateKey(
   return JSON.stringify([
     row.date,
     row.type,
-    amountToMinorUnits(row.amount),
+    toWholeAmount(row.amount),
     row.categoryId,
   ]);
 }
@@ -652,7 +655,8 @@ export function buildTransactionPreview(
 
     if (existingKeys.has(key)) {
       row.possibleDuplicate = true;
-      row.duplicateReason = "Matches an existing transaction.";
+      row.duplicateReason =
+        "Matches an existing transaction (same date, amount and category).";
     } else if (seenImportKeys.has(key)) {
       row.possibleDuplicate = true;
       row.duplicateReason = "Matches another row in this CSV.";

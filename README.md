@@ -57,6 +57,7 @@ It is split into two folders: a React + Vite **client** and an Express 5 REST **
 
 - Set a **monthly budget per category**
 - Visual progress bars with status labels (e.g. _Over budget_) and an overall monthly overview with % used
+- An amber **Near limit** warning at 90% of a budget, and a **daily allowance** on each card ("You can spend X per day for the rest of the month")
 - **Copy previous month's budgets** in one click
 - Navigate between months to review past and plan future budgets
 
@@ -74,7 +75,7 @@ It is split into two folders: a React + Vite **client** and an Express 5 REST **
 - **Column-mapping** UI with intelligent auto-guessing
 - Map unknown source categories to your own categories
 - **Preview step** with per-row validation — invalid rows are blocked with clear error messages
-- **Possible duplicate detection** against your existing data
+- **Duplicate-safe re-imports** — rows that match an existing transaction (same date, amount and category) are skipped by default, with a one-click *Include / Skip duplicates* toggle and a "duplicates skipped" count in the result
 - Covered by unit tests
 
 ### 📄 PDF Reports
@@ -86,8 +87,9 @@ It is split into two folders: a React + Vite **client** and an Express 5 REST **
 
 ### 🔐 Security & Privacy
 
-- **Email + password authentication** with bcrypt hashing (cost factor 12) and **JWT** sessions (30-day expiry)
-- Optional **4- or 6-digit PIN lock** protecting the app per browser tab
+- **Email + password authentication** with bcrypt hashing (cost factor 12) and **JWT** sessions (30-day expiry) kept in an **httpOnly cookie** — never in `localStorage`, so injected scripts cannot read or steal it
+- Optional **4- or 6-digit PIN lock**, **enforced by the server**: a logged-in session alone cannot read transactions, budgets or categories until the PIN is verified
+- **CSRF protection** — requests that change data must come from the app's own origin
 - **Brute-force protection** — 5 wrong PINs trigger a 5-minute lockout
 - **PIN recovery** using your account password
 - PINs are stored **hashed** (bcrypt) server-side; migration helper for legacy local PINs
@@ -121,7 +123,7 @@ It is split into two folders: a React + Vite **client** and an Express 5 REST **
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Frontend**     | React 19, TypeScript, Vite 7, Tailwind CSS 4, wouter (routing), TanStack Query, Axios, Framer Motion, Recharts, date-fns, react-hook-form, Radix UI / shadcn/ui, Sonner, lucide-react |
 | **Reports**      | jsPDF, jspdf-autotable                                                                                                                                                         |
-| **Backend**      | Node.js 24, Express 5, JSON Web Tokens, bcryptjs, cookie-parser, CORS, pino / pino-http (structured logging)                                                                   |
+| **Backend**      | Node.js 24, Express 5, JSON Web Tokens (httpOnly cookies), bcryptjs, CORS, pino / pino-http (structured logging)                                                                   |
 | **Database**     | PostgreSQL 16, Drizzle ORM, drizzle-kit, drizzle-zod                                                                                                                           |
 | **Validation**   | Zod                                                                                                                                                                            |
 | **Tooling**      | npm, esbuild, tsx, Node test runner                                                                                                                                |
@@ -215,6 +217,11 @@ PORT=8080
 NODE_ENV=development
 DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/lifeledger
 JWT_SECRET=replace-with-a-long-random-string
+# Full URL of the client (used for CORS and the CSRF origin check)
+CLIENT_URL=http://localhost:5173
+# Optional: lax | strict | none. Defaults to lax in development and none in production
+# (needed when the client and API are on different sites). See Deployment.
+# COOKIE_SAME_SITE=lax
 ```
 
 **`client/.env`**
@@ -258,7 +265,7 @@ Visit **http://localhost:5173**, create an account, and start tracking.
 |           | `npm run build`        | Production build to `dist/`                    |
 |           | `npm run preview`      | Preview the production build                   |
 |           | `npm run typecheck`    | Type-check the client                          |
-|           | `npm test`             | Unit tests (CSV import & month comparison)     |
+|           | `npm test`             | Unit tests (CSV import, month comparison, budget pace) |
 | `server/` | `npm run dev`          | Start the API with auto-reload                 |
 |           | `npm run build`        | Bundle with esbuild into `dist/`               |
 |           | `npm start`            | Run the built server                           |
@@ -269,13 +276,14 @@ Visit **http://localhost:5173**, create an account, and start tracking.
 
 ## 🔌 API Reference
 
-All routes are prefixed with `/api`. Everything except `register`, `login` and `healthz` requires an `Authorization: Bearer <token>` header.
+All routes are prefixed with `/api`. The login session is an httpOnly cookie, so browser requests must send credentials (`withCredentials: true`). Everything except `register`, `login`, `logout` and `healthz` requires a session. `transactions`, `budgets`, `categories` and `data` additionally require the PIN to be verified when the account has one; otherwise they answer `423` with `code: "PIN_REQUIRED"`.
 
 | Resource         | Method   | Endpoint             | Description                                          |
 | ---------------- | -------- | -------------------- | ---------------------------------------------------- |
 | **Health**       | `GET`    | `/healthz`           | Service health check                                 |
 | **Auth**         | `POST`   | `/auth/register`     | Create an account (seeds default categories & prefs) |
-|                  | `POST`   | `/auth/login`        | Log in and receive a JWT                             |
+|                  | `POST`   | `/auth/login`        | Log in (sets the session cookie)                     |
+|                  | `POST`   | `/auth/logout`       | Clear the session cookie                             |
 |                  | `GET`    | `/auth/me`           | Current user                                         |
 |                  | `PUT`    | `/auth/display-name` | Update display name                                  |
 | **Transactions** | `GET`    | `/transactions`      | List transactions                                    |
@@ -293,7 +301,8 @@ All routes are prefixed with `/api`. Everything except `register`, `login` and `
 |                  | `PUT`    | `/prefs`             | Update preferences                                   |
 | **PIN**          | `GET`    | `/pin`               | PIN status (enabled + length)                        |
 |                  | `PUT`    | `/pin`               | Set or change the PIN                                |
-|                  | `POST`   | `/pin/verify`        | Verify a PIN (rate-limited)                          |
+|                  | `POST`   | `/pin/verify`        | Verify a PIN and unlock data (rate-limited)          |
+|                  | `POST`   | `/pin/lock`          | Lock again (clears the unlock cookie)                |
 |                  | `DELETE` | `/pin`               | Remove the PIN                                       |
 |                  | `POST`   | `/pin/recover`       | Remove the PIN using the account password            |
 | **Data**         | `DELETE` | `/data`              | Delete all transactions and budgets                  |
@@ -305,14 +314,17 @@ All routes are prefixed with `/api`. Everything except `register`, `login` and `
 The app is set up for a split deployment:
 
 - **Client → Vercel** — set the root directory to `client/`. Set `VITE_API_URL` to your hosted API (e.g. `https://your-api.onrender.com/api`). `client/vercel.json` falls back to `index.html` for client-side routing.
-- **Server → Render** — set the root directory to `server/`, build with `npm install && npm run build`, start with `npm start`, and set `DATABASE_URL`, `JWT_SECRET` and `PORT`.
+- **Server → Render** — set the root directory to `server/`, build with `npm install && npm run build`, start with `npm start`, and set `DATABASE_URL`, `JWT_SECRET`, `CLIENT_URL` (your Vercel URL) and `PORT`.
+- **Cookies across sites** — if the client and API are on different sites (for example `*.vercel.app` and `*.onrender.com`), the session cookie is a third-party cookie. It works with `SameSite=None; Secure` (the production default), but **Safari and some privacy settings block third-party cookies**, which breaks login. The reliable fix is to make the API same-site: use a custom domain for both (`app.example.com` and `api.example.com`) or proxy `/api` through the client's domain, and then set `COOKIE_SAME_SITE=lax`.
 
 ---
 
 ## 🔒 Security Notes
 
 - Passwords and PINs are hashed with **bcrypt** (cost 12) — never stored in plain text.
-- JWTs expire after 30 days; always provide your own `JWT_SECRET` in production.
+- The session JWT lives only in an **httpOnly, Secure cookie** and expires after 30 days; always provide your own `JWT_SECRET` in production.
+- The PIN is **verified and enforced on the server**: after `/pin/verify` the server issues a separate short-lived (30 minutes, renewed while you use the app) httpOnly unlock cookie, and data routes refuse to answer without it. The app also locks it immediately when you leave the tab.
+- State-changing requests are rejected unless their `Origin` matches `CLIENT_URL` (CSRF protection), and API responses are sent with `Cache-Control: no-store`.
 - PIN verification is rate-limited with a temporary lockout to prevent brute-forcing.
 - Never commit `.env` files — they are already listed in `.gitignore`.
 

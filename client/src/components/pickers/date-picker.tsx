@@ -3,18 +3,16 @@ import { format, isSameDay, addMonths, subMonths } from 'date-fns';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { nowBD } from '@/lib/bd-time';
+import { DATE_FORMAT, WEEK_START, formatDate, getDayColumn, getWeekdayHeaders } from '@/lib/date-format';
 import { createPortal } from 'react-dom';
-
-// Week starts Saturday: Sa=col0, Su=1, Mo=2, Tu=3, We=4, Th=5, Fr=6
-const getDayCol = (jsDay: number) => jsDay === 6 ? 0 : jsDay + 1;
-const WEEK_HEADERS = ['Sa', 'Su', 'Mo', 'Tu', 'We', 'Th', 'Fr'];
 
 function buildDays(view: Date): (Date | null)[] {
   const year = view.getFullYear();
   const month = view.getMonth();
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-  const offset = getDayCol(firstDay.getDay());
+  const offset = getDayColumn(firstDay.getDay(), WEEK_START);
   const days: (Date | null)[] = Array(offset).fill(null);
   for (let d = 1; d <= lastDay.getDate(); d++) {
     days.push(new Date(year, month, d));
@@ -32,7 +30,7 @@ interface DatePickerProps {
 }
 
 export function DatePicker({ value, onChange, maxDate, minDate, placeholder = 'Select date', className }: DatePickerProps) {
-  const today = new Date();
+  const today = nowBD();
   today.setHours(0, 0, 0, 0);
 
   const parseDate = (s: string | undefined) => {
@@ -137,6 +135,7 @@ export function DatePicker({ value, onChange, maxDate, minDate, placeholder = 'S
   );
 
   const days = buildDays(calView);
+  const weekHeaders = getWeekdayHeaders(WEEK_START);
 
   const popup = (
     <AnimatePresence>
@@ -166,7 +165,7 @@ export function DatePicker({ value, onChange, maxDate, minDate, placeholder = 'S
 
           {/* Day headers */}
           <div className="grid grid-cols-7 text-center mb-0.5">
-            {WEEK_HEADERS.map(h => (
+            {weekHeaders.map(h => (
               <div key={h} className="text-[9px] font-bold text-muted-foreground py-0.5">{h}</div>
             ))}
           </div>
@@ -210,7 +209,7 @@ export function DatePicker({ value, onChange, maxDate, minDate, placeholder = 'S
         className="w-full flex items-center justify-between px-3.5 py-2.5 bg-background border-2 border-border rounded-xl hover:border-primary/60 focus:border-primary focus:outline-none transition-all text-left cursor-pointer"
       >
         <span className={cn('text-sm', selectedDate ? 'text-foreground font-medium' : 'text-muted-foreground')}>
-          {selectedDate ? format(selectedDate, 'MMM d, yyyy') : placeholder}
+          {selectedDate ? formatDate(selectedDate, DATE_FORMAT) : placeholder}
         </span>
         <Calendar className="w-4 h-4 text-muted-foreground shrink-0 ml-2" />
       </button>

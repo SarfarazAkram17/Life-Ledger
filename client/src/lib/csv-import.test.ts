@@ -222,3 +222,30 @@ test("applies a manual category mapping and infers expenses from negative amount
   assert.equal(preview[0].categoryId, "groceries-id");
   assert.equal(preview[0].errors.length, 0);
 });
+
+test("matches decimal CSV amounts against the whole-number amounts already stored", () => {
+  const table = {
+    hasHeader: true,
+    headers: ["Date", "Type", "Category", "Amount", "Note"],
+    rows: [
+      { lineNumber: 2, cells: ["2025-03-10", "Expense", "Food", "15.25", "Lunch"] },
+      { lineNumber: 3, cells: ["2025-03-11", "Expense", "Food", "15.25", "Other day"] },
+      { lineNumber: 4, cells: ["2025-03-10", "Expense", "Food", "20", "Other amount"] },
+    ],
+  };
+  const categories = [{ id: "food-id", name: "Food", type: "expense" as const }];
+  // The app saves amounts as whole numbers, so 15.25 was stored as 15.
+  const existingTransactions = [
+    { date: "2025-03-10", type: "expense" as const, amount: 15, category: "food-id" },
+  ];
+  const preview = buildTransactionPreview(
+    table,
+    guessTransactionColumnMapping(table.headers),
+    categories,
+    existingTransactions,
+  );
+
+  assert.equal(preview[0].possibleDuplicate, true);
+  assert.equal(preview[1].possibleDuplicate, false);
+  assert.equal(preview[2].possibleDuplicate, false);
+});

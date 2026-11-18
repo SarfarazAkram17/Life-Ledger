@@ -9,7 +9,7 @@ export const transactionsTable = pgTable("ll_transactions", {
   category: text("category").notNull(),
   date: text("date").notNull(), // YYYY-MM-DD
   note: text("note").default("").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type Transaction = typeof transactionsTable.$inferSelect;

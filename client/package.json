@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/lib/month-comparison.test.ts src/lib/csv-import.test.ts"
+    "test": "node --experimental-strip-types --test src/lib/month-comparison.test.ts src/lib/csv-import.test.ts src/lib/budget-pace.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

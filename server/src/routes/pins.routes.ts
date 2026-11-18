@@ -5,6 +5,7 @@ import { userPinsTable, usersTable } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../middleware/auth.middleware";
 import { logger } from "../utils/logger";
+import { clearPinUnlockCookie, setPinUnlockCookie } from "../utils/cookies";
 
 const router = Router();
 router.use(requireAuth);
@@ -114,6 +115,8 @@ router.put("/", async (req: AuthRequest, res) => {
         updatedAt: new Date(),
       },
     });
+    // The person just created or proved the PIN, so this browser is unlocked.
+    setPinUnlockCookie(res, userId);
     res.json({ updated: true, enabled: true, length });
   } catch (err) {
     logger.error({ err }, "Save PIN failed");
@@ -134,11 +137,18 @@ router.post("/verify", async (req: AuthRequest, res) => {
       res.status(429).json({ error: "Too many incorrect PIN attempts. Recover with your account password or try again later." });
       return;
     }
+    if (check.verified) setPinUnlockCookie(res, req.user!.userId);
     res.json({ verified: check.verified });
   } catch (err) {
     logger.error({ err }, "Verify PIN failed");
     res.status(500).json({ error: "Unable to verify the PIN." });
   }
+});
+
+// Called when the app locks itself, so the server stops serving data straight away.
+router.post("/lock", (_req, res) => {
+  clearPinUnlockCookie(res);
+  res.json({ locked: true });
 });
 
 router.delete("/", async (req: AuthRequest, res) => {
@@ -160,6 +170,7 @@ router.delete("/", async (req: AuthRequest, res) => {
     }
 
     await db.delete(userPinsTable).where(eq(userPinsTable.userId, req.user!.userId));
+    clearPinUnlockCookie(res);
     res.json({ removed: true });
   } catch (err) {
     logger.error({ err }, "Remove PIN failed");
@@ -184,6 +195,7 @@ router.post("/recover", async (req: AuthRequest, res) => {
     }
 
     await db.delete(userPinsTable).where(eq(userPinsTable.userId, req.user!.userId));
+    clearPinUnlockCookie(res);
     res.json({ recovered: true });
   } catch (err) {
     logger.error({ err }, "Recover PIN failed");

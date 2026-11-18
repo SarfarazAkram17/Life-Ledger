@@ -3,6 +3,10 @@ import { Layout } from "@/components/layout/layout";
 import { useData } from "@/contexts/data-context";
 import { useTheme } from "@/contexts/theme-context";
 import { formatCurrency, getCurrencySymbol, cn } from "@/lib/utils";
+import { Amount } from "@/components/amount";
+import { usePageTitle } from "@/hooks/use-page-title";
+import { currentMonthBD, nowBD } from "@/lib/bd-time";
+import { getDailyAllowance, type DailyAllowance } from "@/lib/budget-pace";
 import { format, parse } from "date-fns";
 import {
   Plus,
@@ -16,6 +20,23 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ConfirmModal } from "@/components/modals/confirm-modal";
+
+/** A budget turns amber once this share of it has been spent. */
+const NEAR_LIMIT_PERCENT = 90;
+
+function describeAllowance(allowance: DailyAllowance, currency: string): string {
+  if (allowance.exhausted) {
+    return "Nothing left to spend in this budget this month.";
+  }
+  if (allowance.perDay < 1) {
+    return `Less than ${getCurrencySymbol(currency)}1 per day is left for the remaining ${allowance.daysLeft} ${allowance.daysLeft === 1 ? "day" : "days"}.`;
+  }
+  const perDay = formatCurrency(allowance.perDay, currency);
+  if (allowance.daysLeft === 1) {
+    return `You can spend ${perDay} today (last day of the month).`;
+  }
+  return `You can spend ${perDay} per day for the rest of the month (${allowance.daysLeft} days left).`;
+}
 
 function getBudgetStatus(percent: number) {
   if (percent > 100) {
@@ -36,6 +57,15 @@ function getBudgetStatus(percent: number) {
       barClass: "bg-orange-500",
     };
   }
+  if (percent >= NEAR_LIMIT_PERCENT) {
+    return {
+      label: "Near limit",
+      textClass: "text-amber-400",
+      badgeClass: "bg-amber-500/10",
+      dotClass: "bg-amber-400",
+      barClass: "bg-amber-500",
+    };
+  }
   return {
     label: "On track",
     textClass: "text-emerald-400",
@@ -46,6 +76,7 @@ function getBudgetStatus(percent: number) {
 }
 
 export default function Budgets() {
+  usePageTitle("Budgets");
   const {
     budgets,
     transactions,
@@ -57,10 +88,11 @@ export default function Budgets() {
   const { currency } = useTheme();
 
   const [activeMonthStr, setActiveMonthStr] = useState(
-    format(new Date(), "yyyy-MM"),
+    currentMonthBD(),
   );
-  const currentMonthStr = format(new Date(), "yyyy-MM");
+  const currentMonthStr = currentMonthBD();
   const isViewingOtherMonth = activeMonthStr !== currentMonthStr;
+  const today = nowBD();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteBudgetId, setDeleteBudgetId] = useState<string | null>(null);
   const [copyingBudgets, setCopyingBudgets] = useState(false);
@@ -123,18 +155,18 @@ export default function Budgets() {
   const openEditModal = (b: (typeof activeBudgets)[0]) => {
     setEditBudgetId(b.id);
     setSelectedCat(b.category);
-    setBudgetAmount(String(b.amount));
+    setBudgetAmount(String(Math.round(b.amount)));
     setIsModalOpen(true);
   };
 
   const handleSaveBudget = () => {
     if (!selectedCat || !budgetAmount || Number(budgetAmount) <= 0) return;
     if (editBudgetId) {
-      updateBudget(editBudgetId, Number(budgetAmount));
+      void updateBudget(editBudgetId, Math.round(Number(budgetAmount)));
     } else {
-      addBudget({
+      void addBudget({
         category: selectedCat,
-        amount: Number(budgetAmount),
+        amount: Math.round(Number(budgetAmount)),
         monthKey: activeMonthStr,
       });
     }
@@ -152,11 +184,14 @@ export default function Budgets() {
     try {
       const results = await Promise.allSettled(
         budgetsToCopy.map((budget) =>
-          addBudget({
-            category: budget.category,
-            amount: budget.amount,
-            monthKey: activeMonthStr,
-          }),
+          addBudget(
+            {
+              category: budget.category,
+              amount: budget.amount,
+              monthKey: activeMonthStr,
+            },
+            { silent: true },
+          ),
         ),
       );
       const copiedCount = results.filter(
@@ -268,12 +303,12 @@ export default function Budgets() {
               </div>
             </div>
             <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-left min-[420px]:justify-end min-[420px]:text-right">
-              <span className="text-xl sm:text-2xl font-bold text-foreground break-all">
-                {formatCurrency(totalSpent, currency)}
+              <span className="text-xl sm:text-2xl font-bold text-foreground">
+                <Amount value={totalSpent} currency={currency} />
               </span>
               <span className="text-muted-foreground mx-1">/</span>
-              <span className="text-base sm:text-lg font-medium text-muted-foreground break-all">
-                {formatCurrency(totalBudgeted, currency)}
+              <span className="text-base sm:text-lg font-medium text-muted-foreground">
+                <Amount value={totalBudgeted} currency={currency} />
               </span>
             </div>
           </div>
@@ -363,6 +398,12 @@ export default function Budgets() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {activeBudgets.map((b) => {
               const cat = categories.find((c) => c.id === b.category);
+              const allowance = getDailyAllowance({
+                amount: b.amount,
+                spent: b.spent,
+                monthKey: activeMonthStr,
+                today,
+              });
               return (
                 <div
                   key={b.id}
@@ -432,6 +473,15 @@ export default function Budgets() {
                         : `${formatCurrency(b.amount - b.spent, currency)} left`}
                     </span>
                   </div>
+                  {allowance && (
+                    <p
+                      data-testid={`text-daily-allowance-${b.id}`}
+                      className="mb-3 flex items-start gap-1.5 text-xs text-muted-foreground"
+                    >
+                      <CalendarDays className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>{describeAllowance(allowance, currency)}</span>
+                    </p>
+                  )}
                   <div className="w-full h-2.5 sm:h-3 bg-muted rounded-full overflow-hidden">
                     <div
                       role="progressbar"
@@ -522,12 +572,14 @@ export default function Budgets() {
                       </span>
                     </div>
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       value={budgetAmount}
-                      onChange={(e) => setBudgetAmount(e.target.value)}
-                      placeholder="0.00"
+                      onChange={(e) =>
+                        setBudgetAmount(e.target.value.replace(/\D/g, ""))
+                      }
+                      placeholder="0"
                       className="w-full bg-background border border-border rounded-xl py-3 pl-14 sm:pl-[4.5rem] pr-4 outline-none focus:border-primary text-base sm:text-lg font-bold text-foreground"
                     />
                   </div>

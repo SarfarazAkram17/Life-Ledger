@@ -3,6 +3,7 @@ import { db } from "../db";
 import { categoriesTable, transactionsTable } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../middleware/auth.middleware";
+import { isValidDateString, toBdIso, toWholeAmount } from "../utils/bd-time";
 
 const router = Router();
 router.use(requireAuth);
@@ -19,7 +20,7 @@ router.get("/", async (req: AuthRequest, res) => {
       category: t.category,
       date: t.date,
       note: t.note,
-      createdAt: t.createdAt,
+      createdAt: toBdIso(t.createdAt),
     })));
   } catch (err) {
     console.error("Get transactions error:", err);
@@ -40,6 +41,15 @@ router.post("/", async (req: AuthRequest, res) => {
       res.status(400).json({ error: "Invalid transaction type" });
       return;
     }
+    const wholeAmount = toWholeAmount(amount);
+    if (wholeAmount === null) {
+      res.status(400).json({ error: "Amount must be a whole number of at least 1" });
+      return;
+    }
+    if (!isValidDateString(date)) {
+      res.status(400).json({ error: "Date must be a valid YYYY-MM-DD date" });
+      return;
+    }
     const [activeCategory] = await db
       .select({ id: categoriesTable.id })
       .from(categoriesTable)
@@ -57,14 +67,14 @@ router.post("/", async (req: AuthRequest, res) => {
     const [tx] = await db.insert(transactionsTable).values({
       userId: req.user!.userId,
       type,
-      amount: String(amount),
+      amount: String(wholeAmount),
       category,
       date,
       note: note || "",
     }).returning();
     res.status(201).json({
       id: tx.id, type: tx.type, amount: Number(tx.amount),
-      category: tx.category, date: tx.date, note: tx.note, createdAt: tx.createdAt,
+      category: tx.category, date: tx.date, note: tx.note, createdAt: toBdIso(tx.createdAt),
     });
   } catch (err) {
     console.error("Create transaction error:", err);
@@ -85,6 +95,20 @@ router.put("/:id", async (req: AuthRequest, res) => {
       ))
       .limit(1);
     if (!current) { res.status(404).json({ error: "Transaction not found" }); return; }
+
+    let wholeAmount: number | undefined;
+    if (amount !== undefined) {
+      const parsed = toWholeAmount(amount);
+      if (parsed === null) {
+        res.status(400).json({ error: "Amount must be a whole number of at least 1" });
+        return;
+      }
+      wholeAmount = parsed;
+    }
+    if (date !== undefined && !isValidDateString(date)) {
+      res.status(400).json({ error: "Date must be a valid YYYY-MM-DD date" });
+      return;
+    }
 
     const nextType = type ?? current.type;
     const nextCategory = category ?? current.category;
@@ -119,7 +143,7 @@ router.put("/:id", async (req: AuthRequest, res) => {
 
     const updates: Partial<typeof transactionsTable.$inferInsert> = {};
     if (type !== undefined) updates.type = type;
-    if (amount !== undefined) updates.amount = String(amount);
+    if (wholeAmount !== undefined) updates.amount = String(wholeAmount);
     if (category !== undefined) updates.category = category;
     if (date !== undefined) updates.date = date;
     if (note !== undefined) updates.note = note;
@@ -130,7 +154,7 @@ router.put("/:id", async (req: AuthRequest, res) => {
     if (!tx) { res.status(404).json({ error: "Transaction not found" }); return; }
     res.json({
       id: tx.id, type: tx.type, amount: Number(tx.amount),
-      category: tx.category, date: tx.date, note: tx.note, createdAt: tx.createdAt,
+      category: tx.category, date: tx.date, note: tx.note, createdAt: toBdIso(tx.createdAt),
     });
   } catch (err) {
     console.error("Update transaction error:", err);

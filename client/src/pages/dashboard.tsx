@@ -4,13 +4,24 @@ import { useData } from "@/contexts/data-context";
 import type { Transaction } from "@/contexts/data-context";
 import { useTheme } from "@/contexts/theme-context";
 import { useAuth } from "@/contexts/auth-context";
-import { formatCurrency, cn } from "@/lib/utils";
+import { cn, formatPercent } from "@/lib/utils";
+import { Amount, AnimatedAmount } from "@/components/amount";
+import { usePageTitle } from "@/hooks/use-page-title";
 import {
-  ArrowUpRight,
+  currentHourBD,
+  nowBD,
+  todayBD,
+  yesterdayBD,
+} from "@/lib/bd-time";
+import {
+  DATE_FORMAT,
+  formatDateShort,
+  formatWeekdayDateLong,
+} from "@/lib/date-format";
+import {
   Wallet,
   TrendingUp,
   TrendingDown,
-  PieChart,
   ArrowRight,
   Copy,
   Pencil,
@@ -18,7 +29,7 @@ import {
 } from "lucide-react";
 import { IoReceiptOutline } from "react-icons/io5";
 import { Link } from "wouter";
-import { format, parseISO, isToday, isYesterday } from "date-fns";
+import { format, parseISO } from "date-fns";
 import {
   calculateMonthComparisonTotals,
   getPercentageChange,
@@ -27,7 +38,15 @@ import { TransactionModal } from "@/components/modals/transaction-modal";
 import { MonthPicker } from "@/components/pickers/month-picker";
 import { ConfirmModal } from "@/components/modals/confirm-modal";
 
+function getGreeting(hour: number): string {
+  if (hour >= 5 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 17) return "Good afternoon";
+  if (hour >= 17) return "Good evening";
+  return "Good night";
+}
+
 export default function Dashboard() {
+  usePageTitle("Dashboard");
   const { totals, transactions, categories, deleteTransaction } = useData();
   const { currency } = useTheme();
   const { user } = useAuth();
@@ -39,7 +58,7 @@ export default function Dashboard() {
   >("edit");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [comparisonMonths, setComparisonMonths] = useState(() => {
-    const currentMonthDate = new Date();
+    const currentMonthDate = nowBD();
     const previousMonthDate = new Date(
       currentMonthDate.getFullYear(),
       currentMonthDate.getMonth() - 1,
@@ -109,11 +128,15 @@ export default function Dashboard() {
     };
 
   const formatDate = (isoString: string) => {
-    const d = parseISO(isoString);
-    if (isToday(d)) return "Today";
-    if (isYesterday(d)) return "Yesterday";
-    return format(d, "MMM d, yyyy");
+    const day = isoString.slice(0, 10);
+    if (day === todayBD()) return "Today";
+    if (day === yesterdayBD()) return "Yesterday";
+    return formatDateShort(parseISO(day), DATE_FORMAT);
   };
+
+  const now = nowBD();
+  const greeting = getGreeting(currentHourBD());
+
 
   return (
     <Layout>
@@ -122,10 +145,10 @@ export default function Dashboard() {
         <div className="flex items-center justify-between min-w-0">
           <div className="min-w-0">
             <h1 className="text-xl sm:text-3xl font-bold text-foreground truncate">
-              Welcome back, {user?.displayName}
+              {greeting}, {user?.displayName}
             </h1>
             <p className="text-muted-foreground mt-0.5 sm:mt-1 text-sm">
-              Here's your financial overview
+              {formatWeekdayDateLong(now, DATE_FORMAT)}
             </p>
           </div>
         </div>
@@ -142,8 +165,8 @@ export default function Dashboard() {
                   Total Balance
                 </span>
               </div>
-              <div className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground break-all">
-                {formatCurrency(totals.balance, currency)}
+              <div className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
+                <AnimatedAmount value={totals.balance} currency={currency} />
               </div>
             </div>
 
@@ -153,8 +176,8 @@ export default function Dashboard() {
                   <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-income shrink-0" />
                   Income
                 </div>
-                <div className="text-base sm:text-xl font-bold text-income break-all">
-                  {formatCurrency(totals.income, currency)}
+                <div className="text-base sm:text-xl font-bold text-income">
+                  <Amount value={totals.income} currency={currency} />
                 </div>
               </div>
 
@@ -163,8 +186,8 @@ export default function Dashboard() {
                   <TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-expense shrink-0" />
                   Expense
                 </div>
-                <div className="text-base sm:text-xl font-bold text-expense break-all">
-                  {formatCurrency(totals.expense, currency)}
+                <div className="text-base sm:text-xl font-bold text-expense">
+                  <Amount value={totals.expense} currency={currency} />
                 </div>
               </div>
             </div>
@@ -274,7 +297,7 @@ export default function Dashboard() {
                       : `No ${metric.label.toLowerCase()} in ${monthComparison.second.label}`
                     : difference === 0
                       ? `No change from ${monthComparison.second.label}`
-                      : `${difference > 0 ? "Up" : "Down"} ${Math.abs(percentageChange).toFixed(1)}% vs ${monthComparison.second.label}`;
+                      : `${difference > 0 ? "Up" : "Down"} ${formatPercent(percentageChange)} vs ${monthComparison.second.label}`;
                 const TrendIcon = difference >= 0 ? TrendingUp : TrendingDown;
                 const Icon = metric.Icon;
 
@@ -295,11 +318,11 @@ export default function Dashboard() {
                         </p>
                         <p
                           className={cn(
-                            "text-xl sm:text-2xl font-bold break-all",
+                            "text-xl sm:text-2xl font-bold",
                             metric.amountClass,
                           )}
                         >
-                          {formatCurrency(metric.first, currency)}
+                          <Amount value={metric.first} currency={currency} />
                         </p>
                       </div>
                       <span
@@ -320,8 +343,8 @@ export default function Dashboard() {
                       <span className="text-muted-foreground">
                         {monthComparison.second.label}
                       </span>
-                      <span className="font-semibold text-foreground break-all text-right">
-                        {formatCurrency(metric.second, currency)}
+                      <span className="font-semibold text-foreground text-right">
+                        <Amount value={metric.second} currency={currency} />
                       </span>
                     </div>
                   </div>
@@ -330,44 +353,6 @@ export default function Dashboard() {
             </div>
           )}
         </section>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-          <Link
-            href="/analytics"
-            className="group rounded-2xl bg-card border border-border p-4 sm:p-6 shadow-sm hover:shadow-md hover:border-primary/30 transition-all block"
-          >
-            <div className="flex justify-between items-center mb-3 sm:mb-4">
-              <h3 className="font-bold text-base sm:text-lg flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-                Analytics
-              </h3>
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors shrink-0">
-                <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </div>
-            </div>
-            <p className="text-muted-foreground text-sm">
-              See detailed breakdown of your spending habits and trends.
-            </p>
-          </Link>
-          <Link
-            href="/budgets"
-            className="group rounded-2xl bg-card border border-border p-4 sm:p-6 shadow-sm hover:shadow-md hover:border-primary/30 transition-all block"
-          >
-            <div className="flex justify-between items-center mb-3 sm:mb-4">
-              <h3 className="font-bold text-base sm:text-lg flex items-center gap-2">
-                <PieChart className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-                Budgets
-              </h3>
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors shrink-0">
-                <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </div>
-            </div>
-            <p className="text-muted-foreground text-sm">
-              Manage category limits and keep your expenses on track.
-            </p>
-          </Link>
-        </div>
 
         {/* Recent Transactions */}
         <div>
@@ -435,7 +420,7 @@ export default function Dashboard() {
                           )}
                         >
                           {isIncome ? "+" : "-"}
-                          {formatCurrency(tx.amount, currency)}
+                          <Amount value={tx.amount} currency={currency} />
                         </div>
                         <div className="flex items-center gap-1">
                           <button

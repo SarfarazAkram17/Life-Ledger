@@ -7,7 +7,7 @@ export const budgetsTable = pgTable("ll_budgets", {
   category: text("category").notNull(),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
   monthKey: text("month_key").notNull(), // YYYY-MM
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type Budget = typeof budgetsTable.$inferSelect;

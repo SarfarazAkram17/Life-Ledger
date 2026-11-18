@@ -4,6 +4,7 @@ import { usePinLock } from './pin-lock-context';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import type { Category, CategoryInput, CategoryUpdate } from '@/types/category';
+import { roundAmount } from '@/lib/utils';
 
 export type TransactionType = 'income' | 'expense';
 export type { Category };
@@ -25,16 +26,25 @@ export interface Budget {
   monthKey: string;
 }
 
+export interface MutationOptions {
+  /** Skip the success/error toast (used for bulk operations like CSV import). */
+  silent?: boolean;
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Please try again.';
+}
+
 interface DataContextType {
   transactions: Transaction[];
   budgets: Budget[];
   categories: Category[];
   loading: boolean;
-  addTransaction: (tx: Omit<Transaction, 'id' | 'createdAt'>) => Promise<void>;
-  updateTransaction: (id: string, updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>) => Promise<void>;
+  addTransaction: (tx: Omit<Transaction, 'id' | 'createdAt'>, options?: MutationOptions) => Promise<void>;
+  updateTransaction: (id: string, updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>, options?: MutationOptions) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
-  addBudget: (budget: Omit<Budget, 'id'>) => Promise<void>;
-  updateBudget: (id: string, amount: number) => Promise<void>;
+  addBudget: (budget: Omit<Budget, 'id'>, options?: MutationOptions) => Promise<void>;
+  updateBudget: (id: string, amount: number, options?: MutationOptions) => Promise<void>;
   deleteBudget: (id: string) => Promise<void>;
   addCategory: (category: CategoryInput) => Promise<Category>;
   updateCategory: (id: string, updates: CategoryUpdate) => Promise<Category>;
@@ -99,23 +109,36 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user, pinReady, isLocked]);
 
-  const addTransaction = async (tx: Omit<Transaction, 'id' | 'createdAt'>) => {
-    const { data: newTx } = await api.post<Transaction>('/transactions', tx);
-    setTransactions(prev => [newTx, ...prev].sort((a, b) =>
-      new Date(b.date).getTime() - new Date(a.date).getTime() ||
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    ));
+  const sortTransactions = (list: Transaction[]) => list.sort((a, b) =>
+    new Date(b.date).getTime() - new Date(a.date).getTime() ||
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  const createTransaction = async (tx: Omit<Transaction, 'id' | 'createdAt'>) => {
+    const { data: newTx } = await api.post<Transaction>('/transactions', { ...tx, amount: roundAmount(tx.amount) });
+    setTransactions(prev => sortTransactions([newTx, ...prev]));
   };
 
-  const updateTransaction = async (id: string, updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>) => {
-    const { data: updated } = await api.put<Transaction>(`/transactions/${id}`, updates);
-    setTransactions(prev => prev
-      .map(t => t.id === id ? updated : t)
-      .sort((a, b) =>
-        new Date(b.date).getTime() - new Date(a.date).getTime() ||
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )
-    );
+  const addTransaction = async (tx: Omit<Transaction, 'id' | 'createdAt'>, options?: MutationOptions) => {
+    try {
+      await createTransaction(tx);
+      if (!options?.silent) toast.success('Transaction added');
+    } catch (err) {
+      if (options?.silent) throw err;
+      toast.error('Could not add transaction', { description: errorMessage(err) });
+    }
+  };
+
+  const updateTransaction = async (id: string, updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>, options?: MutationOptions) => {
+    try {
+      const payload = updates.amount !== undefined ? { ...updates, amount: roundAmount(updates.amount) } : updates;
+      const { data: updated } = await api.put<Transaction>(`/transactions/${id}`, payload);
+      setTransactions(prev => sortTransactions(prev.map(t => t.id === id ? updated : t)));
+      if (!options?.silent) toast.success('Transaction updated');
+    } catch (err) {
+      if (options?.silent) throw err;
+      toast.error('Could not update transaction', { description: errorMessage(err) });
+    }
   };
 
   const deleteTransaction = async (id: string) => {
@@ -134,7 +157,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           onClick: () => {
             if (undoRequested) return;
             undoRequested = true;
-            void addTransaction({
+            void createTransaction({
               type: transaction.type,
               amount: transaction.amount,
               category: transaction.category,
@@ -158,18 +181,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addBudget = async (budget: Omit<Budget, 'id'>) => {
-    const { data: newBudget } = await api.post<Budget>('/budgets', budget);
-    setBudgets(prev => {
-      const existing = prev.findIndex(b => b.category === budget.category && b.monthKey === budget.monthKey);
-      if (existing >= 0) return prev.map((b, i) => i === existing ? newBudget : b);
-      return [...prev, newBudget];
-    });
+  const addBudget = async (budget: Omit<Budget, 'id'>, options?: MutationOptions) => {
+    try {
+      const { data: newBudget } = await api.post<Budget>('/budgets', { ...budget, amount: roundAmount(budget.amount) });
+      setBudgets(prev => {
+        const existing = prev.findIndex(b => b.category === budget.category && b.monthKey === budget.monthKey);
+        if (existing >= 0) return prev.map((b, i) => i === existing ? newBudget : b);
+        return [...prev, newBudget];
+      });
+      if (!options?.silent) toast.success('Budget saved');
+    } catch (err) {
+      if (options?.silent) throw err;
+      toast.error('Could not save budget', { description: errorMessage(err) });
+    }
   };
 
-  const updateBudget = async (id: string, amount: number) => {
-    const { data: updated } = await api.put<Budget>(`/budgets/${id}`, { amount });
-    setBudgets(prev => prev.map(b => b.id === id ? updated : b));
+  const updateBudget = async (id: string, amount: number, options?: MutationOptions) => {
+    try {
+      const { data: updated } = await api.put<Budget>(`/budgets/${id}`, { amount: roundAmount(amount) });
+      setBudgets(prev => prev.map(b => b.id === id ? updated : b));
+      if (!options?.silent) toast.success('Budget saved');
+    } catch (err) {
+      if (options?.silent) throw err;
+      toast.error('Could not save budget', { description: errorMessage(err) });
+    }
   };
 
   const deleteBudget = async (id: string) => {

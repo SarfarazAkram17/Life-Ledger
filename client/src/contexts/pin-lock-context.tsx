@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { api } from '@/lib/api';
+import { api, API_BASE_URL, PIN_REQUIRED_EVENT } from '@/lib/api';
 import type { PinLength } from '@/lib/pin-types';
 import {
   clearLegacyPinRecord,
@@ -118,6 +118,53 @@ export function PinLockProvider({ children }: { children: React.ReactNode }) {
   const ready = !user || loadedForUserId === user.id;
   const hasPin = ready && !!user && (!!pinLength || !!statusError);
   const isLocked = !!user && hasPin && unlockedForUserId !== user.id;
+
+  const lockLocally = useCallback(() => {
+    clearTabUnlock();
+    setUnlockedForUserId(null);
+  }, []);
+
+  const lock = useCallback(() => {
+    lockLocally();
+    // Best effort: also tell the server, so it stops serving data right away.
+    // keepalive lets the request finish even while the page is being hidden.
+    try {
+      void fetch(`${API_BASE_URL}/pin/lock`, {
+        method: 'POST',
+        credentials: 'include',
+        keepalive: true,
+      }).catch(() => {});
+    } catch {
+      // The server also expires an idle unlock on its own.
+    }
+  }, [lockLocally]);
+
+  // The server is the authority: if it asks for the PIN, show the lock screen.
+  const hasPinRef = useRef(false);
+  hasPinRef.current = hasPin;
+  useEffect(() => {
+    const onPinRequired = () => {
+      if (hasPinRef.current) {
+        lockLocally();
+      } else {
+        // A PIN was set elsewhere (another device or tab). Reload to pick it up.
+        window.location.reload();
+      }
+    };
+    window.addEventListener(PIN_REQUIRED_EVENT, onPinRequired);
+    return () => window.removeEventListener(PIN_REQUIRED_EVENT, onPinRequired);
+  }, [lockLocally]);
+
+  // Auto-lock is always immediate: as soon as the app is left (tab switched,
+  // window minimised, phone locked...) the PIN is required again.
+  useEffect(() => {
+    if (!hasPin || isLocked) return;
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') lock();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [hasPin, isLocked, lock]);
 
   const persistPin = async (pin: string, length: PinLength) => {
     if (!user) throw new Error('Sign in before setting a PIN.');
