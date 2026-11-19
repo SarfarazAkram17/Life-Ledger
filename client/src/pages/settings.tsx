@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { ChangePasswordCard } from "@/components/change-password-card";
 import { todayBD } from "@/lib/bd-time";
 import { ConfirmModal } from "@/components/modals/confirm-modal";
 import { PdfReportModal } from "@/components/modals/pdf-report-modal";
@@ -612,6 +613,9 @@ export default function Settings() {
               </p>
             )}
           </div>
+
+          {/* Password */}
+          <ChangePasswordCard />
 
           {/* Preferences — Currency */}
           <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 shadow-sm">

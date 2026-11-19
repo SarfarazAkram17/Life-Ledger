@@ -46,6 +46,11 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET ?? "",
   clientUrl,
   clientOrigin: parseOrigin("CLIENT_URL", clientUrl),
+  // Gmail account used to send password reset emails. Both are optional: without
+  // them the rest of the app works and reset emails are simply not sent.
+  emailUser: process.env.EMAIL?.trim() || undefined,
+  // Gmail shows app passwords in groups ("abcd efgh ijkl mnop"); the spaces are not part of it.
+  emailPass: process.env.PASS?.replace(/\s+/g, "") || undefined,
   cookieSameSite,
   // Browsers require Secure for SameSite=None, and it should always be on in production.
   cookieSecure: cookieSameSite === "none" || nodeEnv === "production",

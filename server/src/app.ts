@@ -24,6 +24,8 @@ app.use(
 );
 
 app.disable("x-powered-by");
+// Behind a hosting proxy (Render, etc.) req.ip would otherwise be the proxy itself.
+if (env.nodeEnv === "production") app.set("trust proxy", 1);
 app.use(cors({ origin: [env.clientOrigin], credentials: true }));
 app.use(csrfGuard);
 // Financial data should never be stored by browsers or proxies.

@@ -29,6 +29,8 @@ export interface Budget {
 export interface MutationOptions {
   /** Skip the success/error toast (used for bulk operations like CSV import). */
   silent?: boolean;
+  /** Set by Undo: lets a transaction go back into a category that was archived since. */
+  restore?: boolean;
 }
 
 function errorMessage(err: unknown): string {
@@ -130,11 +132,46 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateTransaction = async (id: string, updates: Partial<Omit<Transaction, 'id' | 'createdAt'>>, options?: MutationOptions) => {
+    const previous = transactions.find(t => t.id === id);
     try {
-      const payload = updates.amount !== undefined ? { ...updates, amount: roundAmount(updates.amount) } : updates;
+      const payload = {
+        ...updates,
+        ...(updates.amount !== undefined ? { amount: roundAmount(updates.amount) } : {}),
+        ...(options?.restore ? { restore: true } : {}),
+      };
       const { data: updated } = await api.put<Transaction>(`/transactions/${id}`, payload);
       setTransactions(prev => sortTransactions(prev.map(t => t.id === id ? updated : t)));
-      if (!options?.silent) toast.success('Transaction updated');
+      if (options?.silent) return;
+
+      if (!previous) {
+        toast.success('Transaction updated');
+        return;
+      }
+      let undoRequested = false;
+      toast.success('Transaction updated', {
+        duration: 7_000,
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            if (undoRequested) return;
+            undoRequested = true;
+            void updateTransaction(id, {
+              type: previous.type,
+              amount: previous.amount,
+              category: previous.category,
+              date: previous.date,
+              note: previous.note,
+            }, { silent: true, restore: true })
+              .then(() => toast.success('Edit undone'))
+              .catch(() => {
+                undoRequested = false;
+                toast.error('Could not undo the edit', {
+                  description: 'Please refresh and try again.',
+                });
+              });
+          },
+        },
+      });
     } catch (err) {
       if (options?.silent) throw err;
       toast.error('Could not update transaction', { description: errorMessage(err) });
@@ -197,10 +234,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateBudget = async (id: string, amount: number, options?: MutationOptions) => {
+    const previous = budgets.find(b => b.id === id);
     try {
       const { data: updated } = await api.put<Budget>(`/budgets/${id}`, { amount: roundAmount(amount) });
       setBudgets(prev => prev.map(b => b.id === id ? updated : b));
-      if (!options?.silent) toast.success('Budget saved');
+      if (options?.silent) return;
+
+      if (!previous || previous.amount === updated.amount) {
+        toast.success('Budget saved');
+        return;
+      }
+      let undoRequested = false;
+      toast.success('Budget saved', {
+        duration: 7_000,
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            if (undoRequested) return;
+            undoRequested = true;
+            void updateBudget(id, previous.amount, { silent: true })
+              .then(() => toast.success('Budget restored'))
+              .catch(() => {
+                undoRequested = false;
+                toast.error('Could not undo the change', {
+                  description: 'Please refresh and try again.',
+                });
+              });
+          },
+        },
+      });
     } catch (err) {
       if (options?.silent) throw err;
       toast.error('Could not save budget', { description: errorMessage(err) });

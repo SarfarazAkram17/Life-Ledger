@@ -1,18 +1,60 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
-import { ArrowRight, Lock, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Lock } from "lucide-react";
+import { PasswordInput } from "@/components/password-input";
+import {
+  ForgotPasswordForm,
+  ResetPasswordForm,
+} from "@/components/auth/password-reset-forms";
+
+type Mode = "login" | "forgot" | "reset";
+
+const TITLES: Record<Mode, { title: string; subtitle: string; page: string }> = {
+  login: {
+    title: "Welcome Back",
+    subtitle: "Sign in to access your private ledger.",
+    page: "Log in",
+  },
+  forgot: {
+    title: "Forgot password?",
+    subtitle: "Enter your email and we'll send you a link to reset it.",
+    page: "Forgot password",
+  },
+  reset: {
+    title: "Choose a new password",
+    subtitle: "Pick a new password for your account.",
+    page: "Reset password",
+  },
+};
 import { motion } from "framer-motion";
 
 export default function Login() {
-  usePageTitle("Log in");
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<Mode>("login");
+  const [resetToken, setResetToken] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+  usePageTitle(TITLES[mode].page);
+
+  // The reset link in the email opens /login#reset=<token>. The token is kept in the
+  // URL fragment (never sent to a server), read once, then removed from the address bar.
+  useEffect(() => {
+    const match = window.location.hash.match(/^#reset=([\w.-]+)$/);
+    if (!match) return;
+    setResetToken(match[1]);
+    setMode("reset");
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  }, []);
+
+  const backToLogin = () => {
+    setMode("login");
+    setError("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,18 +80,30 @@ export default function Login() {
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center mb-4 shadow-lg shadow-primary/20">
             <Lock className="w-8 h-8 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Welcome Back</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-center">
+            {TITLES[mode].title}
+          </h1>
           <p className="text-muted-foreground mt-2 text-center">
-            Sign in to access your private ledger.
+            {TITLES[mode].subtitle}
           </p>
         </div>
 
-        {error && (
+        {mode === "login" && notice && (
+          <div
+            role="status"
+            className="mb-6 p-4 bg-income/10 border border-income/20 text-income rounded-xl text-sm text-center font-medium"
+          >
+            {notice}
+          </div>
+        )}
+
+        {mode === "login" && error && (
           <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl text-sm text-center font-medium">
             {error}
           </div>
         )}
 
+        {mode === "login" && (
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
             <label className="text-sm font-medium text-muted-foreground ml-1">
@@ -69,27 +123,26 @@ export default function Login() {
             <label className="text-sm font-medium text-muted-foreground ml-1">
               Password
             </label>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-background border-2 border-border rounded-xl py-3 px-4 pr-12 outline-none focus:border-primary transition-all text-foreground"
-                required
-                placeholder="Enter your password"
-                autoComplete="current-password"
-              />
+            <PasswordInput
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-background border-2 border-border rounded-xl py-3 px-4 outline-none focus:border-primary transition-all text-foreground"
+              required
+              placeholder="Enter your password"
+              autoComplete="current-password"
+            />
+            <div className="flex justify-end">
               <button
                 type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-                tabIndex={-1}
+                data-testid="button-forgot-password"
+                onClick={() => {
+                  setError("");
+                  setNotice("");
+                  setMode("forgot");
+                }}
+                className="cursor-pointer text-sm font-medium text-primary hover:underline"
               >
-                {showPassword ? (
-                  <EyeOff className="w-5 h-5" />
-                ) : (
-                  <Eye className="w-5 h-5" />
-                )}
+                Forgot password?
               </button>
             </div>
           </div>
@@ -108,16 +161,36 @@ export default function Login() {
             )}
           </button>
         </form>
+        )}
 
-        <p className="text-center mt-8 text-sm text-muted-foreground">
-          Don't have an account?{" "}
-          <Link
-            href="/register"
-            className="text-primary font-bold hover:underline"
-          >
-            Sign up free
-          </Link>
-        </p>
+        {mode === "forgot" && (
+          <ForgotPasswordForm initialEmail={email} onBack={backToLogin} />
+        )}
+
+        {mode === "reset" && resetToken && (
+          <ResetPasswordForm
+            token={resetToken}
+            onDone={() => {
+              setNotice("Password updated. Log in with your new password.");
+              setPassword("");
+              setResetToken(null);
+              backToLogin();
+            }}
+            onRequestNewLink={() => setMode("forgot")}
+          />
+        )}
+
+        {mode === "login" && (
+          <p className="text-center mt-8 text-sm text-muted-foreground">
+            Don't have an account?{" "}
+            <Link
+              href="/register"
+              className="text-primary font-bold hover:underline"
+            >
+              Sign up free
+            </Link>
+          </p>
+        )}
       </motion.div>
     </div>
   );

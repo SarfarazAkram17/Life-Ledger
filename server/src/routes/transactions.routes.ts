@@ -8,20 +8,26 @@ import { isValidDateString, toBdIso, toWholeAmount } from "../utils/bd-time";
 const router = Router();
 router.use(requireAuth);
 
+type TransactionRow = typeof transactionsTable.$inferSelect;
+
+function serialize(t: TransactionRow) {
+  return {
+    id: t.id,
+    type: t.type,
+    amount: Number(t.amount),
+    category: t.category,
+    date: t.date,
+    note: t.note,
+    createdAt: toBdIso(t.createdAt),
+  };
+}
+
 router.get("/", async (req: AuthRequest, res) => {
   try {
     const txs = await db.select().from(transactionsTable)
       .where(eq(transactionsTable.userId, req.user!.userId))
       .orderBy(desc(transactionsTable.date), desc(transactionsTable.createdAt));
-    res.json(txs.map(t => ({
-      id: t.id,
-      type: t.type,
-      amount: Number(t.amount),
-      category: t.category,
-      date: t.date,
-      note: t.note,
-      createdAt: toBdIso(t.createdAt),
-    })));
+    res.json(txs.map(serialize));
   } catch (err) {
     console.error("Get transactions error:", err);
     res.status(500).json({ error: "Server error" });
@@ -72,10 +78,7 @@ router.post("/", async (req: AuthRequest, res) => {
       date,
       note: note || "",
     }).returning();
-    res.status(201).json({
-      id: tx.id, type: tx.type, amount: Number(tx.amount),
-      category: tx.category, date: tx.date, note: tx.note, createdAt: toBdIso(tx.createdAt),
-    });
+    res.status(201).json(serialize(tx));
   } catch (err) {
     console.error("Create transaction error:", err);
     res.status(500).json({ error: "Server error" });
@@ -85,8 +88,9 @@ router.post("/", async (req: AuthRequest, res) => {
 router.put("/:id", async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    const { type, amount, category, date, note } = req.body as {
+    const { type, amount, category, date, note, restore } = req.body as {
       type?: string; amount?: number; category?: string; date?: string; note?: string;
+      restore?: boolean;
     };
     const [current] = await db.select().from(transactionsTable)
       .where(and(
@@ -134,7 +138,7 @@ router.put("/:id", async (req: AuthRequest, res) => {
       if (
         !categoryRecord ||
         categoryRecord.type !== nextType ||
-        (categoryRecord.isArchived && !isExistingArchivedCategory)
+        (categoryRecord.isArchived && !isExistingArchivedCategory && restore !== true)
       ) {
         res.status(400).json({ error: "Choose an active category for this transaction" });
         return;
@@ -152,10 +156,7 @@ router.put("/:id", async (req: AuthRequest, res) => {
       .where(and(eq(transactionsTable.id, id), eq(transactionsTable.userId, req.user!.userId)))
       .returning();
     if (!tx) { res.status(404).json({ error: "Transaction not found" }); return; }
-    res.json({
-      id: tx.id, type: tx.type, amount: Number(tx.amount),
-      category: tx.category, date: tx.date, note: tx.note, createdAt: toBdIso(tx.createdAt),
-    });
+    res.json(serialize(tx));
   } catch (err) {
     console.error("Update transaction error:", err);
     res.status(500).json({ error: "Server error" });

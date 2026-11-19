@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { LockKeyhole, LogOut } from "lucide-react";
 import { PinDigitBoxes } from "@/components/pin/pin-digit-boxes";
+import { PasswordInput } from "@/components/password-input";
 import { useAuth } from "@/contexts/auth-context";
 import { usePinLock } from "@/contexts/pin-lock-context";
 
@@ -104,9 +105,8 @@ export function PinUnlockScreen() {
 
         {showRecovery && (
           <form onSubmit={handleRecovery} className="space-y-4">
-            <input
+            <PasswordInput
               autoFocus
-              type="password"
               autoComplete="current-password"
               value={password}
               onChange={(event) => {

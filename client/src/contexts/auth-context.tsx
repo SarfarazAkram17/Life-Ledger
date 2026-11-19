@@ -14,6 +14,7 @@ interface AuthContextType {
   register: (email: string, displayName: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   updateDisplayName: (newName: string) => Promise<{ success: boolean; error?: string }>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -73,8 +74,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await api.put('/auth/password', { currentPassword, newPassword });
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Could not change your password' };
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateDisplayName }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateDisplayName, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

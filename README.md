@@ -34,6 +34,7 @@ It is split into two folders: a React + Vite **client** and an Express 5 REST **
 ### 💸 Transaction Management
 
 - Add, edit, **duplicate** and delete income and expense transactions
+- **Undo** after deleting or editing a transaction, and after editing a budget
 - Per-transaction category, date, amount and note
 - Powerful filtering: by **type**, **category**, **month**, **year** and free-text **search**
 - Live totals and a **category breakdown** of whatever is currently filtered
@@ -92,6 +93,8 @@ It is split into two folders: a React + Vite **client** and an Express 5 REST **
 - **CSRF protection** — requests that change data must come from the app's own origin
 - **Brute-force protection** — 5 wrong PINs trigger a 5-minute lockout
 - **PIN recovery** using your account password
+- **Forgot password** by email — a single-use link (valid 30 minutes) opens the reset form right on the login page; the answer never reveals whether an email has an account, and requests are rate-limited
+- **Change password** from Settings (requires the current password, with a lockout after repeated wrong attempts); every password field has a show/hide eye button
 - PINs are stored **hashed** (bcrypt) server-side; migration helper for legacy local PINs
 - All data is scoped to the authenticated user with cascading deletes
 - Danger-zone **Clear All Data** action behind a confirmation modal
@@ -222,6 +225,10 @@ CLIENT_URL=http://localhost:5173
 # Optional: lax | strict | none. Defaults to lax in development and none in production
 # (needed when the client and API are on different sites). See Deployment.
 # COOKIE_SAME_SITE=lax
+# Password reset emails (optional). Use a Gmail address and a Google "App password"
+# (Google Account > Security > 2-Step Verification > App passwords), not your normal password.
+# EMAIL=you@gmail.com
+# PASS=your-16-letter-app-password
 ```
 
 **`client/.env`**
@@ -286,6 +293,9 @@ All routes are prefixed with `/api`. The login session is an httpOnly cookie, so
 |                  | `POST`   | `/auth/logout`       | Clear the session cookie                             |
 |                  | `GET`    | `/auth/me`           | Current user                                         |
 |                  | `PUT`    | `/auth/display-name` | Update display name                                  |
+|                  | `POST`   | `/auth/forgot-password` | Email a password reset link (always answers the same) |
+|                  | `POST`   | `/auth/reset-password`  | Set a new password using the emailed link             |
+|                  | `PUT`    | `/auth/password`     | Change password (needs the current password)         |
 | **Transactions** | `GET`    | `/transactions`      | List transactions                                    |
 |                  | `POST`   | `/transactions`      | Create a transaction                                 |
 |                  | `PUT`    | `/transactions/:id`  | Update a transaction                                 |
@@ -314,7 +324,7 @@ All routes are prefixed with `/api`. The login session is an httpOnly cookie, so
 The app is set up for a split deployment:
 
 - **Client → Vercel** — set the root directory to `client/`. Set `VITE_API_URL` to your hosted API (e.g. `https://your-api.onrender.com/api`). `client/vercel.json` falls back to `index.html` for client-side routing.
-- **Server → Render** — set the root directory to `server/`, build with `npm install && npm run build`, start with `npm start`, and set `DATABASE_URL`, `JWT_SECRET`, `CLIENT_URL` (your Vercel URL) and `PORT`.
+- **Server → Render** — set the root directory to `server/`, build with `npm install && npm run build`, start with `npm start`, and set `DATABASE_URL`, `JWT_SECRET`, `CLIENT_URL` (your Vercel URL) and `PORT`. To send password reset emails also set `EMAIL` and `PASS` (a Gmail address and its Google *App password*).
 - **Cookies across sites** — if the client and API are on different sites (for example `*.vercel.app` and `*.onrender.com`), the session cookie is a third-party cookie. It works with `SameSite=None; Secure` (the production default), but **Safari and some privacy settings block third-party cookies**, which breaks login. The reliable fix is to make the API same-site: use a custom domain for both (`app.example.com` and `api.example.com`) or proxy `/api` through the client's domain, and then set `COOKIE_SAME_SITE=lax`.
 
 ---

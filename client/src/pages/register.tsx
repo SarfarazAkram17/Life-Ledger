@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { usePageTitle } from "@/hooks/use-page-title";
 import { Link } from 'wouter';
 import { useAuth } from '@/contexts/auth-context';
-import { ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { PasswordInput } from '@/components/password-input';
 import { motion } from 'framer-motion';
 
 export default function Register() {
@@ -11,7 +12,6 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -77,26 +77,15 @@ export default function Register() {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-muted-foreground ml-1">Password</label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-background border-2 border-border rounded-xl py-3 px-4 pr-12 outline-none focus:border-primary transition-all text-foreground"
-                required
-                minLength={6}
-                autoComplete="new-password"
-                placeholder="Min. 6 characters"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-                tabIndex={-1}
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
+            <PasswordInput
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-background border-2 border-border rounded-xl py-3 px-4 outline-none focus:border-primary transition-all text-foreground"
+              required
+              minLength={6}
+              autoComplete="new-password"
+              placeholder="Min. 6 characters"
+            />
           </div>
 
           <button
